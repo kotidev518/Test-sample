@@ -589,7 +589,7 @@ async def initialize_data():
             "course_id": "course-1",
             "title": "Variables and Data Types",
             "description": "Understanding Python variables",
-            "url": "https://storage.googleapis.com/sample-videos/python-variables.mp4",
+            "url": "https://youtu.be/_OZIAHg5i7M?si=dQR_BSTDPJLpgtwh",
             "duration": 480,
             "difficulty": "Easy",
             "topics": ["Python", "Variables"],
