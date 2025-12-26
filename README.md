@@ -3,6 +3,15 @@ This project consists of a FastAPI backend and a React (Create React App with Cr
 - [Python 3.8+](https://www.python.org/downloads/)
 - [Node.js 16+](https://nodejs.org/)
 - [MongoDB](https://www.mongodb.com/try/download/community) (Service must be running locally on port 27017)
+
+## 🔑 Environment Setup
+This project requires environment variables and Firebase credentials that are **not** stored in Git.
+
+1. **Backend Configuration**:
+   - Copy `backend/.env.example` to `backend/.env` and update values.
+   - Obtain the `serviceAccountKey.json` from the team leads and place it in the `backend/` folder.
+2. **Frontend Configuration**:
+   - Copy `frontend/.env.example` to `frontend/.env` and update values.
 ## 🚀 Quick Start Guide
 ### 1. Backend Setup (FastAPI)
 1.  Open a terminal and navigate to the `backend` directory:
