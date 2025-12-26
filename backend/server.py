@@ -705,7 +705,7 @@ async def initialize_data(force: bool = False):
             "course_id": "course-2",
             "title": "Introduction to Data Science",
             "description": "Overview of data science concepts",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/05. Big O Drop Constants.mp4",
+            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/05. Big O O(n^2).mp4",
             "duration": 660,
             "difficulty": "Medium",
             "topics": ["Data Science"],
