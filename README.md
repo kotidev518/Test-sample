@@ -51,7 +51,13 @@ This project consists of a FastAPI backend and a React (Create React App with Cr
     npm start
     ```
     - App running at: `http://localhost:3000`
-## 🛠 Troubleshooting
+## � Updating the Project
+To get the latest changes from the repository:
+```bash
+git pull origin main
+```
+
+## �🛠 Troubleshooting
 - **Git Issues**: If you see "remote origin already exists", run `git remote remove origin` before adding a new one.
 - **Port Conflicts**: Ensure ports 8000 (backend) and 3000 (frontend) are free.
 - **Dependency Conflicts**: Use `npm install --legacy-peer-deps` if `npm install` fails
