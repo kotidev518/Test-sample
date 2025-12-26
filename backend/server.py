@@ -599,11 +599,57 @@ async def get_next_video_recommendation(user = Depends(get_current_user)):
 
 # ==================== Initialize Sample Data ====================
 
+async def clean_database():
+    """Remove duplicates from courses, videos, and quizzes based on both ID and content"""
+    # 1. Clean courses by ID
+    pipeline = [
+        {"$group": {"_id": "$id", "unique_ids": {"$push": "$_id"}}},
+        {"$match": {"unique_ids": {"$size": {"$gt": 1}}}}
+    ]
+    duplicates = await db.courses.aggregate(pipeline).to_list(None)
+    for doc in duplicates:
+        await db.courses.delete_many({"_id": {"$in": doc["unique_ids"][1:]}})
+    
+    # 2. Clean videos by ID and content (title + course_id)
+    # First by ID
+    pipeline = [
+        {"$group": {"_id": "$id", "unique_ids": {"$push": "$_id"}}},
+        {"$match": {"unique_ids": {"$size": {"$gt": 1}}}}
+    ]
+    duplicates = await db.videos.aggregate(pipeline).to_list(None)
+    for doc in duplicates:
+        await db.videos.delete_many({"_id": {"$in": doc["unique_ids"][1:]}})
+    
+    # Then by title + course_id (handles same video with different UUIDs)
+    pipeline = [
+        {"$group": {"_id": {"t": "$title", "c": "$course_id"}, "unique_ids": {"$push": "$_id"}}},
+        {"$match": {"unique_ids": {"$size": {"$gt": 1}}}}
+    ]
+    duplicates = await db.videos.aggregate(pipeline).to_list(None)
+    for doc in duplicates:
+        await db.videos.delete_many({"_id": {"$in": doc["unique_ids"][1:]}})
+
+    # 3. Clean quizzes by ID and content (video_id)
+    pipeline = [
+        {"$group": {"_id": "$id", "unique_ids": {"$push": "$_id"}}},
+        {"$match": {"unique_ids": {"$size": {"$gt": 1}}}}
+    ]
+    duplicates = await db.quizzes.aggregate(pipeline).to_list(None)
+    for doc in duplicates:
+        await db.quizzes.delete_many({"_id": {"$in": doc["unique_ids"][1:]}})
+
+    # Then by video_id
+    pipeline = [
+        {"$group": {"_id": "$video_id", "unique_ids": {"$push": "$_id"}}},
+        {"$match": {"unique_ids": {"$size": {"$gt": 1}}}}
+    ]
+    duplicates = await db.quizzes.aggregate(pipeline).to_list(None)
+    for doc in duplicates:
+        await db.quizzes.delete_many({"_id": {"$in": doc["unique_ids"][1:]}})
+
 @api_router.post("/init-data")
 async def initialize_data(force: bool = False):
-    """Initialize sample courses and videos"""
-    from uuid import uuid4
-    
+    """Initialize sample courses and videos with stable IDs"""
     # Check if data exists
     if force:
         print("Forced re-initialization: clearing existing data...")
@@ -615,7 +661,7 @@ async def initialize_data(force: bool = False):
         if existing > 0:
             return {"message": "Data already initialized. Use force=true to override."}
     
-    # Sample courses
+    # Sample courses with stable IDs
     courses_data = [
         {
             "id": "course-1",
@@ -648,11 +694,11 @@ async def initialize_data(force: bool = False):
     
     await db.courses.insert_many(courses_data)
     
-    # Sample videos with transcripts
+    # Sample videos with stable IDs
     videos_data = [
         # Course 1: Python Fundamentals
         {
-            "id": str(uuid4()),
+            "id": "vid-python-1",
             "course_id": "course-1",
             "title": "Introduction to Python",
             "description": "Learn Python basics and syntax",
@@ -664,7 +710,7 @@ async def initialize_data(force: bool = False):
             "order": 1
         },
         {
-            "id": str(uuid4()),
+            "id": "vid-python-2",
             "course_id": "course-1",
             "title": "Variables and Data Types",
             "description": "Understanding Python variables",
@@ -676,7 +722,7 @@ async def initialize_data(force: bool = False):
             "order": 2
         },
         {
-            "id": str(uuid4()),
+            "id": "vid-python-3",
             "course_id": "course-1",
             "title": "Functions and Methods",
             "description": "Creating reusable code with functions",
@@ -688,7 +734,7 @@ async def initialize_data(force: bool = False):
             "order": 3
         },
         {
-            "id": str(uuid4()),
+            "id": "vid-python-4",
             "course_id": "course-1",
             "title": "Control Flow and Loops",
             "description": "Master if statements and loops",
@@ -701,7 +747,7 @@ async def initialize_data(force: bool = False):
         },
         # Course 2: Data Science
         {
-            "id": str(uuid4()),
+            "id": "vid-ds-1",
             "course_id": "course-2",
             "title": "Introduction to Data Science",
             "description": "Overview of data science concepts",
@@ -713,7 +759,7 @@ async def initialize_data(force: bool = False):
             "order": 1
         },
         {
-            "id": str(uuid4()),
+            "id": "vid-ds-2",
             "course_id": "course-2",
             "title": "Pandas for Data Analysis",
             "description": "Working with dataframes in Pandas",
@@ -725,7 +771,7 @@ async def initialize_data(force: bool = False):
             "order": 2
         },
         {
-            "id": str(uuid4()),
+            "id": "vid-ds-3",
             "course_id": "course-2",
             "title": "Data Visualization",
             "description": "Creating charts with matplotlib",
@@ -737,7 +783,7 @@ async def initialize_data(force: bool = False):
             "order": 3
         },
         {
-            "id": str(uuid4()),
+            "id": "vid-ds-4",
             "course_id": "course-2",
             "title": "Statistical Analysis",
             "description": "Statistical methods for data",
@@ -750,7 +796,7 @@ async def initialize_data(force: bool = False):
         },
         # Course 3: Machine Learning
         {
-            "id": str(uuid4()),
+            "id": "vid-ml-1",
             "course_id": "course-3",
             "title": "Neural Networks Basics",
             "description": "Introduction to neural networks",
@@ -762,7 +808,7 @@ async def initialize_data(force: bool = False):
             "order": 1
         },
         {
-            "id": str(uuid4()),
+            "id": "vid-ml-2",
             "course_id": "course-3",
             "title": "Deep Learning Algorithms",
             "description": "Advanced deep learning techniques",
@@ -774,7 +820,7 @@ async def initialize_data(force: bool = False):
             "order": 2
         },
         {
-            "id": str(uuid4()),
+            "id": "vid-ml-3",
             "course_id": "course-3",
             "title": "Model Optimization",
             "description": "Optimizing ML models for production",
@@ -795,11 +841,11 @@ async def initialize_data(force: bool = False):
     
     await db.videos.insert_many(videos_data)
     
-    # Create sample quizzes
+    # Create sample quizzes with stable IDs
     quizzes_data = []
-    for video in videos_data[:5]:  # First 5 videos
+    for i, video in enumerate(videos_data[:5]):  # First 5 videos
         quiz = {
-            "id": str(uuid4()),
+            "id": f"quiz-{video['id']}",
             "video_id": video['id'],
             "questions": [
                 {
@@ -841,12 +887,16 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 async def startup_db_client():
     try:
+        # Perform deduplication before enforcing unique indexes
+        await clean_database()
+        print("Database deduplication complete")
+        
         await db.courses.create_index("id", unique=True)
         await db.videos.create_index("id", unique=True)
         await db.quizzes.create_index("id", unique=True)
         print("Verified unique indexes on courses, videos, and quizzes")
     except Exception as e:
-        logger.warning(f"Could not create unique indexes (duplicates might exist): {e}")
+        logger.warning(f"Could not complete startup database tasks: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
