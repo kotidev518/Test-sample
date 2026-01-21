@@ -126,9 +126,13 @@ async def submit_quiz(submission: QuizSubmission, user = Depends(get_current_use
     
     return QuizResult(**result_doc)
 
+import json
+import os
+from pathlib import Path
+
 @router.post("/init-data")
 async def initialize_data(force: bool = False):
-    """Initialize sample courses and videos with stable IDs"""
+    """Initialize sample courses and videos with stable IDs from external JSON"""
     # Check if data exists
     if force:
         print("Forced re-initialization: clearing existing data...")
@@ -140,181 +144,26 @@ async def initialize_data(force: bool = False):
         if existing > 0:
             return {"message": "Data already initialized. Use force=true to override."}
     
-    # Sample courses with stable IDs
-    courses_data = [
-        {
-            "id": "course-1",
-            "title": "Python Programming Fundamentals",
-            "description": "Master the basics of Python programming",
-            "difficulty": "Easy",
-            "topics": ["Python", "Programming", "Variables", "Functions"],
-            "thumbnail": "https://images.unsplash.com/photo-1753998943619-b9cd910887e5?crop=entropy&cs=srgb&fm=jpg&q=85",
-            "video_count": 4
-        },
-        {
-            "id": "course-2",
-            "title": "Data Science with Python",
-            "description": "Learn data analysis and visualization",
-            "difficulty": "Medium",
-            "topics": ["Data Science", "Python", "Pandas", "Visualization"],
-            "thumbnail": "https://images.unsplash.com/photo-1744782211816-c5224434614f?crop=entropy&cs=srgb&fm=jpg&q=85",
-            "video_count": 4
-        },
-        {
-            "id": "course-3",
-            "title": "Machine Learning Advanced",
-            "description": "Deep dive into ML algorithms",
-            "difficulty": "Hard",
-            "topics": ["Machine Learning", "Algorithms", "Neural Networks"],
-            "thumbnail": "https://images.unsplash.com/photo-1764336312138-14a5368a6cd3?crop=entropy&cs=srgb&fm=jpg&q=85",
-            "video_count": 3
-        }
-    ]
+    # Load data from JSON file
+    data_path = Path(__file__).parent.parent / "data" / "initial_data.json"
+    if not data_path.exists():
+        raise HTTPException(status_code=500, detail="Initial data file not found")
+        
+    try:
+        with open(data_path, "r") as f:
+            initial_data = json.load(f)
+            courses_data = initial_data.get("courses", [])
+            videos_data = initial_data.get("videos", [])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading initial data: {str(e)}")
+
+    if courses_data:
+        await db.courses.insert_many(courses_data)
     
-    await db.courses.insert_many(courses_data)
+    if videos_data:
+        await db.videos.insert_many(videos_data)
     
-    # Sample videos with stable IDs
-    videos_data = [
-        # Course 1: Python Fundamentals
-        {
-            "id": "vid-python-1",
-            "course_id": "course-1",
-            "title": "Introduction to Python",
-            "description": "Learn Python basics and syntax",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/01. Big O Intro.mp4",
-            "duration": 600,
-            "difficulty": "Easy",
-            "topics": ["Python", "Programming"],
-            "transcript": "Python is a high-level programming language. It is easy to learn and powerful for various applications.",
-            "order": 1
-        },
-        {
-            "id": "vid-python-2",
-            "course_id": "course-1",
-            "title": "Variables and Data Types",
-            "description": "Understanding Python variables",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/02. Big O Worst Case.mp4",
-            "duration": 480,
-            "difficulty": "Easy",
-            "topics": ["Python", "Variables"],
-            "transcript": "Variables in Python store data values. Python has various data types including integers, strings, and lists.",
-            "order": 2
-        },
-        {
-            "id": "vid-python-3",
-            "course_id": "course-1",
-            "title": "Functions and Methods",
-            "description": "Creating reusable code with functions",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/03. Big O O(n).mp4",
-            "duration": 720,
-            "difficulty": "Easy",
-            "topics": ["Python", "Functions"],
-            "transcript": "Functions are reusable blocks of code. They help organize your program and make it more maintainable.",
-            "order": 3
-        },
-        {
-            "id": "vid-python-4",
-            "course_id": "course-1",
-            "title": "Control Flow and Loops",
-            "description": "Master if statements and loops",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/04. Big O Drop Constants.mp4",
-            "duration": 540,
-            "difficulty": "Easy",
-            "topics": ["Python", "Programming"],
-            "transcript": "Control flow statements like if-else and loops like for and while help control program execution.",
-            "order": 4
-        },
-        # Course 2: Data Science
-        {
-            "id": "vid-ds-1",
-            "course_id": "course-2",
-            "title": "Introduction to Data Science",
-            "description": "Overview of data science concepts",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/05. Big O O(n^2).mp4",
-            "duration": 660,
-            "difficulty": "Medium",
-            "topics": ["Data Science", "Python"],
-            "transcript": "Data science involves drawing insights from data using scientific methods, processes, algorithms, and systems.",
-            "order": 1
-        },
-        {
-            "id": "vid-ds-2",
-            "course_id": "course-2",
-            "title": "Pandas for Data Manipulation",
-            "description": "Working with DataFrames",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/06. Big O O(1).mp4",
-            "duration": 900,
-            "difficulty": "Medium",
-            "topics": ["Pandas", "Python", "Data Science"],
-            "transcript": "Pandas is a software library written for the Python programming language for data manipulation and analysis.",
-            "order": 2
-        },
-        {
-            "id": "vid-ds-3",
-            "course_id": "course-2",
-            "title": "Data Visualization with Matplotlib",
-            "description": "Creating plots and charts",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/07. Big O O(log n).mp4",
-            "duration": 780,
-            "difficulty": "Medium",
-            "topics": ["Visualization", "Python"],
-            "transcript": "Matplotlib is a plotting library for the Python programming language and its numerical mathematics extension NumPy.",
-            "order": 3
-        },
-        {
-            "id": "vid-ds-4",
-            "course_id": "course-2",
-            "title": "Exploratory Data Analysis",
-            "description": "Analyzing datasets",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/08. Big O Arrays.mp4",
-            "duration": 840,
-            "difficulty": "Medium",
-            "topics": ["Data Science", "Analysis"],
-            "transcript": "Exploratory Data Analysis (EDA) is an approach to analyzing data sets to summarize their main characteristics.",
-            "order": 4
-        },
-        # Course 3: Machine Learning
-        {
-            "id": "vid-ml-1",
-            "course_id": "course-3",
-            "title": "Supervised Learning",
-            "description": "Regression and Classification",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/09. Lists.mp4",
-            "duration": 960,
-            "difficulty": "Hard",
-            "topics": ["Machine Learning", "Algorithms"],
-            "transcript": "Supervised learning is the machine learning task of learning a function that maps an input to an output based on example input-output pairs.",
-            "order": 1
-        },
-        {
-            "id": "vid-ml-2",
-            "course_id": "course-3",
-            "title": "Neural Networks Basics",
-            "description": "Understanding Perceptrons",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/11. Classes & Pointers.mp4",
-            "duration": 1020,
-            "difficulty": "Hard",
-            "topics": ["Neural Networks", "Deep Learning"],
-            "transcript": "Artificial neural networks are computing systems inspired by the biological neural networks that constitute animal brains.",
-            "order": 2
-        },
-        {
-            "id": "vid-ml-3",
-            "course_id": "course-3",
-            "title": "Model Evaluation",
-            "description": "Metrics and Validation",
-            "url": "gs://online-course-platform-68c2c.firebasestorage.app/DSA/102. Binary Search Tree Intro.mp4",
-            "duration": 600,
-            "difficulty": "Hard",
-            "topics": ["Machine Learning", "Analysis"],
-            "transcript": "Model evaluation is an integral part of the model development process. It helps to find the best model that represents our data.",
-            "order": 3
-        }
-    ]
-    
-    await db.videos.insert_many(videos_data)
-    
-    # Sample quizzes (1 per video)
+    # Generate and sample quizzes (1 per video)
     quizzes_data = []
     
     for video in videos_data:
@@ -325,7 +174,7 @@ async def initialize_data(force: bool = False):
                 {
                     "question": f"What is the main topic of {video['title']}?",
                     "options": [
-                        f"{video['topics'][0]}",
+                        f"{video['topics'][0]}" if video['topics'] else "General",
                         "Cooking",
                         "History",
                         "Music"
@@ -353,7 +202,7 @@ async def initialize_data(force: bool = False):
                     "correct_answer": 1
                 },
                 {
-                    "question": "Which concept was mentioned in the transcript?",
+                    "question": "Which concept was mentioned?" ,
                     "options": [
                         "Quantum Physics",
                         "Blockchain",
@@ -365,10 +214,12 @@ async def initialize_data(force: bool = False):
             ]
         })
         
-    await db.quizzes.insert_many(quizzes_data)
+    if quizzes_data:
+        await db.quizzes.insert_many(quizzes_data)
     
     return {"message": "Data initialized successfully", "counts": {
         "courses": len(courses_data),
         "videos": len(videos_data),
         "quizzes": len(quizzes_data)
     }}
+

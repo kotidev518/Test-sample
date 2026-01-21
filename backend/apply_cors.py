@@ -22,7 +22,7 @@ def apply_cors():
         {
             "origin": ["http://localhost:3000"],
             "responseHeader": ["Content-Type"],
-            "method": ["GET", "HEAD", "DELETE", "OPTIONS"],
+            "method": ["GET","POST" "HEAD", "DELETE", "OPTIONS"],
             "maxAgeSeconds": 3600
         }
     ]

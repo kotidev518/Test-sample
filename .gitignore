@@ -31,3 +31,9 @@ coverage/
 frontend/.env
 
 backend/serviceAccountKey.json
+
+# Debug and data files
+backend/routes.txt
+backend/routes_debug.txt
+backend/routes_dump.txt
+backend/app/data/

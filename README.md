@@ -38,7 +38,7 @@ This project requires environment variables and Firebase credentials that are **
       ```
 5.  Run the Backend Server:
     ```bash
-    uvicorn server:app --reload
+    python server.py
     ```
     - Server running at: `http://localhost:8000`
     - API Docs: `http://localhost:8000/docs`
