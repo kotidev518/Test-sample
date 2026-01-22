@@ -21,6 +21,7 @@ class UserProfile(BaseModel):
     email: str
     name: str
     initial_level: str
+    role: str = "student"  # "student" or "admin"
     created_at: str
 
 class TokenResponse(BaseModel):
@@ -43,7 +44,9 @@ class Video(BaseModel):
     course_id: str
     title: str
     description: str
-    url: str
+    url: Optional[str] = None
+    youtube_id: Optional[str] = None
+    thumbnail: Optional[str] = None
     duration: int  # seconds
     difficulty: str
     topics: List[str]
