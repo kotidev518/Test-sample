@@ -14,6 +14,154 @@ import { ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
+// Helper function to extract YouTube video ID from URL
+const extractYouTubeId = (url) => {
+  if (!url) return '';
+  
+  // Handle youtu.be short URLs
+  const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+  if (shortMatch) return shortMatch[1];
+  
+  // Handle youtube.com URLs (watch?v=ID or embed/ID)
+  const longMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/))([a-zA-Z0-9_-]+)/);
+  if (longMatch) return longMatch[1];
+  
+  // Handle just the video ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
+  
+  return '';
+};
+
+// Custom YouTube Player Wrapper with branded play button and end screen overlay
+const YouTubePlayerWrapper = ({ videoId, thumbnail, title, onVideoEnd }) => {
+  const [playerState, setPlayerState] = React.useState('idle'); // idle, playing, ended
+  const iframeRef = React.useRef(null);
+  const playerRef = React.useRef(null);
+  
+  // Load YouTube IFrame API
+  React.useEffect(() => {
+    if (playerState !== 'playing') return;
+    
+    // Load YouTube API script if not already loaded
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    }
+    
+    // Initialize player when API is ready
+    const initPlayer = () => {
+      if (playerRef.current) return;
+      
+      playerRef.current = new window.YT.Player(`youtube-player-${videoId}`, {
+        events: {
+          onStateChange: (event) => {
+            // 0 = ended
+            if (event.data === 0) {
+              setPlayerState('ended');
+              if (onVideoEnd) onVideoEnd();
+            }
+          }
+        }
+      });
+    };
+    
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      window.onYouTubeIframeAPIReady = initPlayer;
+    }
+    
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+    };
+  }, [playerState, videoId, onVideoEnd]);
+  
+  const handleReplay = () => {
+    if (playerRef.current && playerRef.current.seekTo) {
+      playerRef.current.seekTo(0);
+      playerRef.current.playVideo();
+      setPlayerState('playing');
+    } else {
+      setPlayerState('idle');
+      setTimeout(() => setPlayerState('playing'), 100);
+    }
+  };
+  
+  // Show custom thumbnail before play
+  if (playerState === 'idle') {
+    return (
+      <div 
+        className="w-full h-full cursor-pointer group relative"
+        onClick={() => setPlayerState('playing')}
+      >
+        {/* Custom Thumbnail */}
+        <img 
+          src={thumbnail || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
+          alt={title}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+          }}
+        />
+        
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
+        
+        {/* Custom Play Button */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-transform duration-300">
+            <svg 
+              className="w-8 h-8 text-white ml-1" 
+              fill="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+        </div>
+        
+        {/* Video Title Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-4">
+          <p className="text-white font-semibold text-lg truncate">{title}</p>
+          <p className="text-white/70 text-sm">Click to play</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="w-full h-full relative">
+      {/* YouTube Player */}
+      <iframe
+        id={`youtube-player-${videoId}`}
+        ref={iframeRef}
+        src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1&showinfo=0&iv_load_policy=3`}
+        className="w-full h-full absolute inset-0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        title={title}
+        style={{ border: 'none' }}
+      />
+      
+      {/* End Screen Overlay - Covers YouTube suggestions */}
+      {playerState === 'ended' && (
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-purple-900/50 to-gray-900 flex flex-col items-center justify-center z-10">
+          <div className="text-center">
+            <h3 className="text-white text-2xl font-bold mb-2">Video Complete!</h3>
+            <p className="text-white/70 mb-6">Great job! The quiz will appear automatically.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 const VideoPlayerPage = () => {
   const { videoId } = useParams();
   const navigate = useNavigate();
@@ -59,11 +207,13 @@ const VideoPlayerPage = () => {
       
       // Fetch quiz
       try {
+        console.log('Fetching quiz for video:', videoId);
         const quizData = await courseService.getQuiz(videoId);
+        console.log('Quiz data received:', quizData);
         setQuiz(quizData);
         setQuizAnswers(new Array(quizData.questions.length).fill(-1));
       } catch (error) {
-        console.log('No quiz available for this video');
+        console.error('Quiz fetch error:', error);
       }
     } catch (error) {
       console.error('Failed to fetch video data:', error);
@@ -84,16 +234,19 @@ const VideoPlayerPage = () => {
 
   const updateProgress = async (percentage) => {
     try {
-      await courseService.updateVideoProgress(videoId, {
-        watch_percentage: percentage,
-        completed: percentage >= 90
-      });
+      if (percentage > watchProgress) {
+        await courseService.updateVideoProgress(videoId, {
+          watch_percentage: percentage,
+          completed: percentage >= 90
+        });
+      }
     } catch (error) {
       console.error('Failed to update progress:', error);
     }
   };
 
   const handleVideoEnd = () => {
+    console.log('Video ended, showing quiz...');
     updateProgress(100);
     if (quiz) {
       setShowQuiz(true);
@@ -110,19 +263,46 @@ const VideoPlayerPage = () => {
       return;
     }
 
+    // Compute score locally to ensure accurate immediate feedback
     try {
-      const result = await courseService.submitQuiz({
+      let correct = 0;
+      for (let i = 0; i < quiz.questions.length; i++) {
+        const userAns = quizAnswers[i];
+        const correctAns = quiz.questions[i].correct_answer;
+        if (userAns === correctAns) correct += 1;
+      }
+
+      const localScore = quiz.questions.length ? (correct / quiz.questions.length) * 100 : 0;
+
+      // Show local result immediately
+      const localResult = {
+        id: `local-${Date.now()}`,
+        user_id: null,
         quiz_id: quiz.id,
-        answers: quizAnswers
-      });
-      
-      setQuizResult(result);
-      toast.success(`Quiz completed! Score: ${Math.round(result.score)}%`);
-      
+        video_id: quiz.video_id,
+        score: localScore,
+        timestamp: new Date().toISOString()
+      };
+
+      setQuizResult(localResult);
+      toast.success(`Quiz completed! Score: ${Math.round(localScore)}%`);
+
+      // Submit to backend (fire-and-update). If server returns authoritative result, update it.
+      try {
+        const serverResult = await courseService.submitQuiz({
+          quiz_id: quiz.id,
+          answers: quizAnswers
+        });
+        setQuizResult(serverResult);
+      } catch (err) {
+        console.error('Failed to submit quiz to server:', err);
+        // keep local result shown
+      }
+
       // Fetch next video recommendation
       fetchNextVideo();
     } catch (error) {
-      console.error('Failed to submit quiz:', error);
+      console.error('Failed to compute/submit quiz:', error);
       toast.error('Failed to submit quiz');
     }
   };
@@ -180,17 +360,28 @@ const VideoPlayerPage = () => {
             >
               <Card className="border-2">
                 <CardContent className="p-0">
-                  <div className="aspect-video bg-black rounded-t-lg overflow-hidden">
-                    <video
-                      ref={videoRef}
-                      controls
-                      onEnded={handleVideoEnd}
-                      className="w-full h-full"
-                      data-testid="video-player"
-                    >
-                      <source src={video.url} type="video/mp4" />
-                      Your browser does not support the video tag.
-                    </video>
+                  <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-800 rounded-t-lg overflow-hidden relative">
+                    {video.url && (video.url.includes('youtube.com') || video.url.includes('youtu.be')) ? (
+                      // Custom player wrapper for YouTube
+                      <YouTubePlayerWrapper 
+                        videoId={extractYouTubeId(video.url)} 
+                        thumbnail={video.thumbnail}
+                        title={video.title}
+                        onVideoEnd={handleVideoEnd}
+                      />
+                    ) : (
+                      // Native video player for non-YouTube videos
+                      <video
+                        ref={videoRef}
+                        controls
+                        onEnded={handleVideoEnd}
+                        className="w-full h-full"
+                        data-testid="video-player"
+                      >
+                        <source src={video.url} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    )}
                   </div>
                   <div className="p-6">
                     <div className="flex items-center gap-2 mb-3">
@@ -202,16 +393,7 @@ const VideoPlayerPage = () => {
                       ))}
                     </div>
                     <h1 className="text-2xl font-heading font-bold mb-2">{video.title}</h1>
-                    <p className="text-muted-foreground mb-4">{video.description}</p>
-                    
-                    {/* Progress Bar */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Watch Progress</span>
-                        <span className="font-medium">{Math.round(watchProgress)}%</span>
-                      </div>
-                      <Progress value={watchProgress} className="h-2" />
-                    </div>
+                    <p className="text-muted-foreground">{video.description}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -280,28 +462,28 @@ const VideoPlayerPage = () => {
               >
                 <Card
                   className={`border-2 ${
-                    quizResult.score >= 70
+                    quizResult.score >= 75
                       ? 'border-green-500/50 bg-green-500/5'
                       : 'border-yellow-500/50 bg-yellow-500/5'
                   }`}
                   data-testid="quiz-result-card"
                 >
                   <CardContent className="p-8 text-center">
-                    {quizResult.score >= 70 ? (
+                    {quizResult.score >= 75 ? (
                       <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
                     ) : (
                       <XCircle className="h-16 w-16 text-yellow-600 mx-auto mb-4" />
                     )}
                     <h3 className="text-2xl font-heading font-bold mb-2">
-                      {quizResult.score >= 70 ? 'Great Job!' : 'Keep Learning!'}
+                      {quizResult.score >= 75 ? 'Great Job!' : 'Keep Learning!'}
                     </h3>
                     <p className="text-4xl font-bold text-primary mb-4">
                       {Math.round(quizResult.score)}%
                     </p>
                     <p className="text-muted-foreground mb-6">
-                      {quizResult.score >= 70
-                        ? 'You have a strong understanding of this topic'
-                        : 'Consider reviewing the video for better understanding'}
+                      {quizResult.score >= 75
+                        ? 'You have a strong understanding of this topic. Next video unlocked!'
+                        : 'Score 75% or higher to unlock the next video'}
                     </p>
                     <div className="flex gap-4 justify-center">
                       <Button
@@ -332,7 +514,6 @@ const VideoPlayerPage = () => {
                         title={quizResult.score < 75 ? "Score 75% or higher to unlock next video" : "Go to next recommended video"}
                       >
                         Next Video
-                        {nextVideo && <span className="text-xs opacity-75 hidden sm:inline">({nextVideo.title})</span>}
                       </Button>
                     </div>
                   </CardContent>
@@ -382,18 +563,13 @@ const VideoPlayerPage = () => {
               >
                 <Card className="border-primary/20">
                   <CardContent className="p-6 text-center">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Complete the video to unlock the quiz
+                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <CheckCircle2 className="w-6 h-6 text-primary" />
+                    </div>
+                    <p className="font-medium mb-1">Quiz Available</p>
+                    <p className="text-sm text-muted-foreground">
+                      {quiz.questions?.length || 4} questions will appear after the video ends
                     </p>
-                    <Button
-                      onClick={() => setShowQuiz(true)}
-                      variant="outline"
-                      className="w-full"
-                      disabled={watchProgress < 90}
-                      data-testid="take-quiz-btn"
-                    >
-                      Take Quiz
-                    </Button>
                   </CardContent>
                 </Card>
               </motion.div>

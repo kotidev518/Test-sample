@@ -34,6 +34,7 @@ async def register(user_data: UserProfileCreate, credentials: HTTPAuthorizationC
                 email=existing['email'],
                 name=existing['name'],
                 initial_level=existing.get('initial_level', 'Medium'),
+                role=existing.get('role', 'user'),
                 created_at=existing['created_at']
             )
         
@@ -50,6 +51,7 @@ async def register(user_data: UserProfileCreate, credentials: HTTPAuthorizationC
                 email=existing_by_email['email'],
                 name=existing_by_email['name'],
                 initial_level=existing_by_email.get('initial_level', 'Medium'),
+                role=existing_by_email.get('role', 'user'),
                 created_at=existing_by_email['created_at']
             )
         
@@ -93,5 +95,6 @@ async def get_me(user = Depends(get_current_user)):
         email=user['email'],
         name=user['name'],
         initial_level=user.get('initial_level', 'Medium'),
+        role=user.get('role', 'user'),
         created_at=user['created_at']
     )

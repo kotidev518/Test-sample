@@ -37,3 +37,39 @@ backend/routes.txt
 backend/routes_debug.txt
 backend/routes_dump.txt
 backend/app/data/
+
+# Additional common temporary / sensitive files
+# Python caches and test artifacts
+.pytest_cache/
+.mypy_cache/
+pip-wheel-metadata/
+*.egg-info/
+.cache/
+.coverage
+
+# Ignore any venv folders anywhere
+**/venv/
+**/.venv/
+
+# Logs
+*.log
+
+# Mac/Windows
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Local env files
+.env.local
+.env.*.local
+
+# Build artifacts
+frontend/.parcel-cache/
+frontend/build/
+frontend/dist/
+
+# Firebase service account (sensitive) - already listed specifically
+backend/serviceAccountKey.json

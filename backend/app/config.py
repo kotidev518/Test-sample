@@ -13,6 +13,8 @@ class Settings:
     JWT_ALGORITHM: str = 'HS256'
     JWT_EXPIRATION_HOURS: int = 72
     FIREBASE_STORAGE_BUCKET: str = os.environ.get('FIREBASE_STORAGE_BUCKET')
+    YOUTUBE_API_KEY: str = os.environ.get('YOUTUBE_API_KEY', '')
+    GEMINI_API_KEY: str = os.environ.get('GEMINI_API_KEY', '')
 
     def __init__(self):
         # Resolve absolute path for credentials
