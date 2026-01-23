@@ -11,5 +11,17 @@ export const authService = {
       initial_level
     });
     return response.data;
+  },
+  login: async () => {
+    const response = await api.post('/auth/login');
+    return response.data;
+  },
+  googleLogin: async (name, email) => {
+    // For Google login, we'll send basic profile data just in case we need to create the user
+    const response = await api.post('/auth/google-login', {
+      name: name || email.split('@')[0],
+      initial_level: 'Easy' // Default for Google Sign-In users
+    });
+    return response.data;
   }
 };

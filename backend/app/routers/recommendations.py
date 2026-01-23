@@ -73,13 +73,13 @@ async def get_next_video_recommendation(user = Depends(get_current_user)):
                 score += 20
         else:
             # No mastery data yet - prioritize easier content
-            if video['difficulty'] == user.get('initial_level', 'Medium'):
+            if video['difficulty'] == user.get('initial_level', 'Easy'):
                 score += 35
-                reasons.append(f"Matches your {user.get('initial_level', 'Medium')} level")
+                reasons.append(f"Matches your {user.get('initial_level', 'Easy')} level")
         
         # 2. Difficulty progression (20% weight)
         difficulty_map = {'Easy': 1, 'Medium': 2, 'Hard': 3}
-        user_level = difficulty_map.get(user.get('initial_level', 'Medium'), 2)
+        user_level = difficulty_map.get(user.get('initial_level', 'Easy'), 2)
         video_level = difficulty_map.get(video['difficulty'], 2)
         
         if video_level == user_level:

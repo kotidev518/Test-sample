@@ -5,11 +5,11 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     name: str
-    initial_level: Optional[str] = "Medium"  # Easy, Medium, Hard
+    initial_level: Optional[str] = "Easy"  # Easy, Medium, Hard
 
 class UserProfileCreate(BaseModel):
     name: str
-    initial_level: Optional[str] = "Medium"  # Easy, Medium, Hard
+    initial_level: Optional[str] = "Easy"  # Easy, Medium, Hard
 
 class UserLogin(BaseModel):
     email: EmailStr

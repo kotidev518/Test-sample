@@ -38,13 +38,16 @@ export const AuthProvider = ({ children }) => {
           setAuthToken(idToken);
           
           // Fetch user profile from backend
-          const userProfile = await authService.getProfile();
-          setUser(userProfile);
+          await checkUser();
         } catch (error) {
-          console.error('Failed to fetch user profile:', error);
-          // If user doesn't exist in backend, this is expected for new signups
-          // The register function will handle creating the profile
-          setUser(null);
+           // Ignore 404s (user might not be registered in backend yet)
+           // The login/register flows will handle backend user creation
+           if (error.response && error.response.status === 404) {
+             setUser(null);
+           } else {
+             console.error('Failed to fetch user profile:', error);
+             setUser(null);
+           }
         }
       } else {
         setToken(null);
@@ -57,6 +60,21 @@ export const AuthProvider = ({ children }) => {
 
     return () => unsubscribe();
   }, []);
+
+  const checkUser = async () => {
+    try {
+      const userProfile = await authService.getProfile();
+      setUser(userProfile);
+      return userProfile;
+    } catch (error) {
+      if (error.response && error.response.status === 404) {
+        // User authenticated in Firebase but not in DB -> clear user profile
+        setUser(null);
+      } else {
+        throw error;
+      }
+    }
+  };
 
   // Refresh token periodically (Firebase tokens expire after 1 hour)
   useEffect(() => {
@@ -124,6 +142,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        checkUser,
         getAxiosConfig,
         isAuthenticated: !!token && !!user
       }}
