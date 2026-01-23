@@ -56,7 +56,7 @@ const LandingPage = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/auth', { state: { isLogin: false } })}
                 className="text-base px-8 rounded-full"
                 data-testid="get-started-btn"
               >
@@ -161,7 +161,7 @@ const LandingPage = () => {
                 </p>
                 <Button
                   size="lg"
-                  onClick={() => navigate('/auth')}
+                  onClick={() => navigate('/auth', { state: { isLogin: false } })}
                   className="text-base px-10 rounded-full"
                   data-testid="cta-get-started-btn"
                 >
