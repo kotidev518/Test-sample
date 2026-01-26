@@ -7,10 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { GraduationCap, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, browserLocalPersistence, browserSessionPersistence, setPersistence, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '@/firebase';
 import { authService } from '@/services/authService';
 
@@ -27,7 +28,12 @@ const AuthPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   
-  const { login: authContextLogin, register: authContextRegister, checkUser } = useAuth();
+  // Forgot password modal state
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  
+  const { register: authContextRegister, checkUser } = useAuth();
   const navigate = useNavigate();
 
   const handleGoogleSignIn = async () => {
@@ -36,6 +42,9 @@ const AuthPage = () => {
     provider.setCustomParameters({ prompt: 'select_account' });
     
     try {
+      // Set persistence based on remember me (for Google, we'll use local as default)
+      await setPersistence(auth, browserLocalPersistence);
+      
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       await authService.googleLogin(user.displayName, user.email);
@@ -62,6 +71,11 @@ const AuthPage = () => {
 
     try {
       if (isLogin) {
+        // Set persistence based on "Remember me" checkbox
+        const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+        await setPersistence(auth, persistence);
+        
+        // Firebase Login
         await import('firebase/auth').then(module => 
              module.signInWithEmailAndPassword(auth, formData.email, formData.password)
         );
@@ -111,6 +125,34 @@ const AuthPage = () => {
     }
   };
 
+  // Handle forgot password
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      toast.error('Please enter your email address');
+      return;
+    }
+    
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      toast.success('Password reset email sent! Check your inbox.');
+      setForgotPasswordOpen(false);
+      setResetEmail('');
+    } catch (error) {
+      console.error("Password Reset Error:", error);
+      let errorMessage = 'Failed to send reset email';
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      }
+      toast.error(errorMessage);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -146,6 +188,7 @@ const AuthPage = () => {
                variant="outline" 
                className="w-full h-9 bg-white border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg flex items-center justify-center gap-2 mb-3"
                onClick={handleGoogleSignIn}
+               disabled={loading}
              >
                <svg className="w-4 h-4" viewBox="0 0 24 24">
                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -219,7 +262,7 @@ const AuthPage = () => {
                 </div>
               </div>
 
-              {/* Difficulty Level (Signup only) - Horizontal compact */}
+              {/* Difficulty Level (Signup only) */}
               {!isLogin && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-gray-700">Difficulty Level</Label>
@@ -260,9 +303,16 @@ const AuthPage = () => {
                             Remember me
                         </Label>
                     </div>
-                    <a href="#" className="text-xs text-gray-500 hover:text-gray-900 underline">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetEmail(formData.email);
+                        setForgotPasswordOpen(true);
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-900 underline"
+                    >
                         Forgot password?
-                    </a>
+                    </button>
                   </div>
               )}
 
@@ -298,6 +348,43 @@ const AuthPage = () => {
           </CardFooter>
         </Card>
       </motion.div>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Enter your email address and we'll send you a link to reset your password.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleForgotPassword} className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email">Email Address</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                placeholder="you@example.com"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setForgotPasswordOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={resetLoading}>
+                {resetLoading ? 'Sending...' : 'Send Reset Link'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
