@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,12 +8,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { GraduationCap, Eye, EyeOff } from 'lucide-react';
+import { GraduationCap, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { signInWithPopup, GoogleAuthProvider, browserLocalPersistence, browserSessionPersistence, setPersistence, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '@/firebase';
 import { authService } from '@/services/authService';
+
+// Password validation requirements
+const validatePassword = (password) => {
+  return {
+    hasLowercase: /[a-z]/.test(password),
+    hasUppercase: /[A-Z]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasSpecial: /[@#$]/.test(password),
+    hasMinLength: password.length >= 8,
+  };
+};
 
 const AuthPage = () => {
   const location = useLocation();
@@ -35,6 +46,10 @@ const AuthPage = () => {
   
   const { register: authContextRegister, checkUser } = useAuth();
   const navigate = useNavigate();
+
+  // Password validation
+  const passwordValidation = useMemo(() => validatePassword(formData.password), [formData.password]);
+  const isPasswordValid = Object.values(passwordValidation).every(Boolean);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -260,6 +275,33 @@ const AuthPage = () => {
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                
+                {/* Password Requirements (Signup only) */}
+                {!isLogin && formData.password.length > 0 && (
+                  <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                    <p className="text-[10px] font-medium text-gray-500 mb-1.5">Password must contain:</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {[
+                        { key: 'hasMinLength', label: 'Min 8 characters' },
+                        { key: 'hasLowercase', label: 'Lowercase letter' },
+                        { key: 'hasUppercase', label: 'Uppercase letter' },
+                        { key: 'hasNumber', label: 'Number' },
+                        { key: 'hasSpecial', label: 'Special char (@#$)' },
+                      ].map(({ key, label }) => (
+                        <div key={key} className="flex items-center gap-1">
+                          {passwordValidation[key] ? (
+                            <CheckCircle2 size={12} className="text-green-500 flex-shrink-0" />
+                          ) : (
+                            <XCircle size={12} className="text-gray-300 flex-shrink-0" />
+                          )}
+                          <span className={`text-[10px] ${passwordValidation[key] ? 'text-green-600' : 'text-gray-400'}`}>
+                            {label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Difficulty Level (Signup only) */}
@@ -319,8 +361,8 @@ const AuthPage = () => {
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full h-9 bg-gray-900 hover:bg-black text-white text-sm rounded-lg font-medium mt-1"
-                disabled={loading}
+                className="w-full h-9 bg-gray-900 hover:bg-black text-white text-sm rounded-lg font-medium mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading || (!isLogin && !isPasswordValid)}
               >
                 {loading ? (
                     <div className="flex items-center gap-2">

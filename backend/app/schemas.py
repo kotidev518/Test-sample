@@ -1,11 +1,26 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
+import re
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 from typing import List, Optional
+
+# Password must contain: lowercase, uppercase, number, special char (@#$), min 8 chars
+PASSWORD_REGEX = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$])[A-Za-z\d@#$]{8,}$')
+PASSWORD_ERROR_MESSAGE = (
+    'Password must contain at least 8 characters, one lowercase letter, '
+    'one uppercase letter, one number, and one special character (@, #, $)'
+)
 
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
     name: str
     initial_level: Optional[str] = "Easy"  # Easy, Medium, Hard
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if not PASSWORD_REGEX.match(v):
+            raise ValueError(PASSWORD_ERROR_MESSAGE)
+        return v
 
 class UserProfileCreate(BaseModel):
     name: str
@@ -14,6 +29,13 @@ class UserProfileCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if not PASSWORD_REGEX.match(v):
+            raise ValueError(PASSWORD_ERROR_MESSAGE)
+        return v
 
 class UserProfile(BaseModel):
     model_config = ConfigDict(extra="ignore")
