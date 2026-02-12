@@ -11,6 +11,8 @@ from ..database import db
 from ..dependencies import get_admin_user
 from ..youtube_service import youtube_service
 from ..gemini_service import gemini_service
+from ..transcript_service import transcript_service
+from ..queue import enqueue_quiz_job
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -35,9 +37,10 @@ async def import_youtube_playlist(
     admin = Depends(get_admin_user)
 ):
     """
-    Import a YouTube playlist as a course with all its videos.
-    Uses Gemini AI for accurate topics and clean transcripts.
-    Requires admin authentication.
+    Import a YouTube playlist as a course (INSTANT - metadata only).
+    Transcripts, embeddings, and quizzes are handled separately:
+    - Transcripts + embeddings: background worker (async with rate limiting)
+    - Quizzes: generated on-demand when user clicks a video
     """
     # Extract playlist ID from URL
     playlist_id = youtube_service.extract_playlist_id(request.playlist_url)
@@ -55,7 +58,7 @@ async def import_youtube_playlist(
             detail=f"This playlist has already been imported as '{existing_course['title']}'"
         )
     
-    # Fetch playlist details
+    # Fetch playlist details (instant - single YouTube API call)
     playlist_details = await youtube_service.get_playlist_details(playlist_id)
     if not playlist_details:
         raise HTTPException(
@@ -63,7 +66,7 @@ async def import_youtube_playlist(
             detail="Could not fetch playlist details. Check if the playlist is public."
         )
     
-    # Fetch all videos from playlist
+    # Fetch all videos from playlist (instant - YouTube API)
     playlist_videos = await youtube_service.get_playlist_videos(playlist_id)
     if not playlist_videos:
         raise HTTPException(
@@ -71,23 +74,25 @@ async def import_youtube_playlist(
             detail="No videos found in this playlist. It may be empty or private."
         )
     
-    # Get detailed info for all videos (duration, tags)
+    # Get detailed info for all videos: duration, tags (instant - YouTube API batch)
     video_ids = [v['video_id'] for v in playlist_videos]
     video_details = await youtube_service.get_video_details(video_ids)
     
-    # Generate AI-powered course topics from first few video titles
-    sample_titles = " | ".join([v['title'] for v in playlist_videos[:5]])
-    course_topics = await gemini_service.generate_topics(playlist_details['title'], sample_titles)
+    # Create course document using YouTube metadata directly (no Gemini call)
+    course_id = playlist_id
     
-    # Create course document
-    course_id = playlist_id  # Use playlist ID as course ID
+    # Extract topics from YouTube tags across all videos
+    all_tags = set()
+    for vid in video_ids:
+        details = video_details.get(vid, {})
+        for tag in details.get('tags', []):
+            all_tags.add(tag)
+    course_topics = list(all_tags)[:10] if all_tags else ['General']
+    
     course_doc = {
         "id": course_id,
         "title": playlist_details['title'],
-        "description": await gemini_service.generate_transcript_summary(
-            playlist_details['title'], 
-            playlist_details['description'] or ""
-        ) or f"Course: {playlist_details['title']}",
+        "description": playlist_details['description'] or f"Course: {playlist_details['title']}",
         "difficulty": request.difficulty,
         "topics": course_topics,
         "thumbnail": playlist_details['thumbnail'],
@@ -97,7 +102,7 @@ async def import_youtube_playlist(
         "imported_by": admin['id']
     }
     
-    # Create video documents with progressive difficulty and AI-generated content
+    # Create video documents using YouTube metadata only (no AI calls)
     video_docs = []
     total_videos = len(playlist_videos)
     
@@ -106,77 +111,62 @@ async def import_youtube_playlist(
         details = video_details.get(vid, {})
         position = video['position']
         
-        # Assign progressive difficulty based on position in playlist
+        # Progressive difficulty based on position
         video_difficulty = _get_progressive_difficulty(position, total_videos)
         
-        # Generate AI-powered topics for this video
-        video_topics = await gemini_service.generate_topics(video['title'], video['description'] or "")
-        
-        # Generate clean transcript/summary
-        video_transcript = await gemini_service.generate_transcript_summary(
-            video['title'], 
-            video['description'] or ""
-        )
+        # Use YouTube tags directly as topics
+        video_tags = details.get('tags', [])[:5]
+        if not video_tags:
+            video_tags = course_topics[:3]
         
         video_docs.append({
             "id": vid,
             "course_id": course_id,
             "title": video['title'],
-            "description": video_transcript or f"Part of {playlist_details['title']}",
+            "description": video['description'] or f"Part of {playlist_details['title']}",
             "url": f"https://www.youtube.com/watch?v={vid}",
             "duration": details.get('duration', 0),
             "difficulty": video_difficulty,
-            "topics": video_topics,
-            "transcript": video_transcript,
+            "topics": video_tags,
+            "transcript": "",  # Will be filled by background worker
             "order": position,
-            "thumbnail": video['thumbnail']
+            "thumbnail": video['thumbnail'],
+            "processing_status": "pending"  # Track background processing
         })
     
-    # Generate AI-powered quizzes for each video
-    quiz_docs = []
-    for video_doc in video_docs:
-        # Generate AI quiz using Gemini
-        ai_questions = await gemini_service.generate_quiz(
-            video_title=video_doc['title'],
-            video_transcript=video_doc.get('transcript', ''),
-            topics=video_doc.get('topics', []),
-            difficulty=video_doc['difficulty']
-        )
-        
-        quiz_docs.append({
-            "id": f"quiz-{video_doc['id']}",
-            "video_id": video_doc['id'],
-            "questions": ai_questions
-        })
-    
-    # Insert into database
+    # Insert into database (NO quizzes - generated on-demand)
     try:
         await db.courses.insert_one(course_doc)
         
         if video_docs:
             await db.videos.insert_many(video_docs)
         
-        if quiz_docs:
-            await db.quizzes.insert_many(quiz_docs)
+        # Queue all videos for background transcript + embedding processing
+        from ..processing_queue_service import processing_worker
+        video_ids_to_queue = [v["id"] for v in video_docs]
+        queue_results = await processing_worker.add_batch_to_queue(video_ids_to_queue, priority=1)
+        
+        print(f"✅ Imported playlist instantly: {playlist_details['title']}")
+        print(f"   - Videos: {len(video_docs)}")
+        print(f"   - Queued for processing: {queue_results['queued']}")
+        
+        return ImportSummary(
+            success=True,
+            course_id=course_id,
+            course_title=playlist_details['title'],
+            videos_imported=len(video_docs),
+            quizzes_generated=0,  # Quizzes generated on-demand now
+            message=f"Imported {len(video_docs)} videos instantly. Transcripts & embeddings processing in background. Quizzes will be generated when users watch videos."
+        )
             
     except Exception as e:
         # Rollback on error
         await db.courses.delete_one({"id": course_id})
         await db.videos.delete_many({"course_id": course_id})
-        await db.quizzes.delete_many({"video_id": {"$in": [v['id'] for v in video_docs]}})
         raise HTTPException(
             status_code=500,
             detail=f"Failed to import playlist: {str(e)}"
         )
-    
-    return ImportSummary(
-        success=True,
-        course_id=course_id,
-        course_title=playlist_details['title'],
-        videos_imported=len(video_docs),
-        quizzes_generated=len(quiz_docs),
-        message=f"Successfully imported '{playlist_details['title']}' with {len(video_docs)} videos"
-    )
 
 
 @router.get("/courses")
@@ -208,6 +198,75 @@ async def delete_course(course_id: str, admin = Depends(get_admin_user)):
     await db.courses.delete_one({"id": course_id})
     
     return {"success": True, "message": f"Deleted course '{course['title']}' and all associated data"}
+
+
+@router.get("/processing-status/{course_id}")
+async def get_course_processing_status(
+    course_id: str,
+    admin = Depends(get_admin_user)
+):
+    """
+    Get transcript/embedding processing progress for a course (admin only).
+
+    Returns total videos and counts by processing_status:
+    pending, processing, completed, failed — plus failed video details.
+    """
+    # Verify course exists
+    course = await db.courses.find_one({"id": course_id})
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    from ..processing_queue_service import processing_worker
+    status = await processing_worker.get_course_processing_status(course_id)
+    return status
+
+
+@router.post("/regenerate-quizzes")
+async def regenerate_quizzes(
+    course_id: str = None,
+    admin = Depends(get_admin_user)
+):
+    """
+    Regenerate quizzes for all videos (or a specific course) using real transcripts.
+    Deletes old quizzes and creates new ones with Gemini AI + YouTube transcripts.
+    """
+    # Get videos to regenerate quizzes for
+    query = {"course_id": course_id} if course_id else {}
+    videos = await db.videos.find(query, {"_id": 0}).to_list(1000)
+    
+    if not videos:
+        raise HTTPException(status_code=404, detail="No videos found")
+    
+    video_ids = [v["id"] for v in videos]
+    
+    # Fetch real transcripts for all videos
+    print(f"Fetching transcripts for {len(video_ids)} videos...")
+    transcripts = await transcript_service.get_transcripts_batch(video_ids)
+    transcript_count = sum(1 for t in transcripts.values() if t)
+    print(f"Successfully fetched {transcript_count}/{len(video_ids)} transcripts")
+    
+    # Delete old quizzes
+    quiz_ids = [f"quiz-{vid}" for vid in video_ids]
+    await db.quizzes.delete_many({"id": {"$in": quiz_ids}})
+    
+    # Enqueue new quiz generation jobs to ARQ
+    print(f"Enqueuing quiz generation for {len(video_ids)} videos...")
+    for vid in video_ids:
+        await enqueue_quiz_job(vid)
+    
+    return {
+        "success": True, 
+        "message": f"Enqueued {len(video_ids)} quiz generation jobs to ARQ.",
+        "video_count": len(video_ids)
+    }
+    
+    return {
+        "success": True,
+        "quizzes_regenerated": len(new_quizzes),
+        "transcripts_found": transcript_count,
+        "message": f"Regenerated {len(new_quizzes)} quizzes using real transcripts"
+    }
+
 
 
 def _get_progressive_difficulty(position: int, total_videos: int) -> str:
@@ -290,6 +349,16 @@ def _generate_quiz_for_video(video: dict) -> dict:
                     "Virtual Reality"
                 ],
                 "correct_answer": 2
+            },
+            {
+                "question": f"Which additional topic is related to '{video['title']}'?",
+                "options": [
+                    "Cooking",
+                    topics[1] if len(topics) > 1 else "General Concepts",
+                    "Music Theory",
+                    "Architecture"
+                ],
+                "correct_answer": 1
             }
         ]
     }

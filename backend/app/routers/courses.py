@@ -8,6 +8,7 @@ from ..schemas import Course, Video, VideoProgressUpdate, Quiz, QuizSubmission, 
 from ..dependencies import get_current_user
 from ..utils import get_video_url
 from ..services import update_mastery_scores_for_video
+from ..gemini_service import gemini_service
 
 router = APIRouter(tags=["courses"])
 
@@ -84,12 +85,26 @@ async def get_video_progress(video_id: str, user = Depends(get_current_user)):
 
 # ==================== Quiz Routes ====================
 
-@router.get("/quizzes/{video_id}", response_model=Quiz)
+@router.get("/quizzes/{video_id}")
 async def get_quiz(video_id: str, user = Depends(get_current_user)):
-    quiz = await db.quizzes.find_one({"video_id": video_id}, {"_id": 0})
-    if not quiz:
-        raise HTTPException(status_code=404, detail="Quiz not found")
-    return quiz
+    """
+    Get quiz for a video. Generates on-demand if not cached.
+    - If quiz exists in DB with 4+ questions → return it (cached)
+    - If transcript available but no quiz → generate with Gemini, save, return
+    - If no transcript yet → return empty questions (frontend will retry)
+    """
+    # 1. Check if quiz already exists and is complete
+    existing_quiz = await db.quizzes.find_one({"video_id": video_id}, {"_id": 0})
+    if existing_quiz and existing_quiz.get("questions") and len(existing_quiz["questions"]) >= 4:
+        return existing_quiz
+    
+    # 2. Return payload (empty if not ready yet)
+    # The background worker pre-generates quizzes now, so we don't generate on-demand to avoid latency.
+    return {
+        "id": f"quiz-{video_id}",
+        "video_id": video_id,
+        "questions": []
+    }
 
 @router.post("/quizzes/submit", response_model=QuizResult)
 async def submit_quiz(submission: QuizSubmission, user = Depends(get_current_user)):
@@ -128,7 +143,11 @@ async def submit_quiz(submission: QuizSubmission, user = Depends(get_current_use
 
 import json
 import os
+import re
 from pathlib import Path
+
+from ..gemini_service import gemini_service
+from ..transcript_service import transcript_service
 
 @router.post("/init-data")
 async def initialize_data(force: bool = False):
@@ -163,56 +182,42 @@ async def initialize_data(force: bool = False):
     if videos_data:
         await db.videos.insert_many(videos_data)
     
-    # Generate and sample quizzes (1 per video)
+    # Extract video IDs for transcript fetching
+    video_ids = [v.get('id', '') for v in videos_data if v.get('id')]
+    
+    # Fetch real transcripts for all videos
+    print(f"Fetching transcripts for {len(video_ids)} videos...")
+    transcripts = await transcript_service.get_transcripts_batch(video_ids)
+    transcript_count = sum(1 for t in transcripts.values() if t)
+    print(f"Successfully fetched {transcript_count}/{len(video_ids)} transcripts")
+    
+    # Generate AI-powered quizzes using real transcripts (1 per video)
     quizzes_data = []
     
     for video in videos_data:
+        vid = video.get('id', '')
+        video_transcript = transcripts.get(vid, "")
+        
+        # Generate quiz from transcript using Gemini AI
+        ai_questions = await gemini_service.generate_quiz(
+            video_title=video['title'],
+            video_transcript=video_transcript,
+            topics=video.get('topics', []),
+            difficulty=video.get('difficulty', 'Medium')
+        )
+        
         quizzes_data.append({
-            "id": f"quiz-{video['id']}",
-            "video_id": video['id'],
-            "questions": [
-                {
-                    "question": f"What is the main topic of {video['title']}?",
-                    "options": [
-                        f"{video['topics'][0]}" if video['topics'] else "General",
-                        "Cooking",
-                        "History",
-                        "Music"
-                    ],
-                    "correct_answer": 0
-                },
-                {
-                    "question": "Which of the following is true regarding the content?",
-                    "options": [
-                        "It is unrelated to the course",
-                        "It covers advanced topics only",
-                        f"It discusses {video['description']}",
-                        "None of the above"
-                    ],
-                    "correct_answer": 2
-                },
-                {
-                    "question": "What is the difficulty level of this video?",
-                    "options": [
-                        "Impossible",
-                        video['difficulty'],
-                        "Very Easy",
-                        "Expert"
-                    ],
-                    "correct_answer": 1
-                },
-                {
-                    "question": "Which concept was mentioned?" ,
-                    "options": [
-                        "Quantum Physics",
-                        "Blockchain",
-                        video['topics'][0] if video['topics'] else "General",
-                        "Augmented Reality"
-                    ],
-                    "correct_answer": 2
-                }
-            ]
+            "id": f"quiz-{vid}",
+            "video_id": vid,
+            "questions": ai_questions
         })
+        
+        # Update video's transcript field if we got a real one
+        if video_transcript:
+            await db.videos.update_one(
+                {"id": vid},
+                {"$set": {"transcript": video_transcript}}
+            )
         
     if quizzes_data:
         await db.quizzes.insert_many(quizzes_data)
@@ -220,6 +225,7 @@ async def initialize_data(force: bool = False):
     return {"message": "Data initialized successfully", "counts": {
         "courses": len(courses_data),
         "videos": len(videos_data),
-        "quizzes": len(quizzes_data)
+        "quizzes": len(quizzes_data),
+        "transcripts_found": transcript_count
     }}
 
