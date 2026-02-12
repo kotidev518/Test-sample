@@ -36,13 +36,26 @@ def load_sbert_model():
     print("Loading SBERT model...")
     sbert_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
     print("SBERT model loaded successfully")
+    
+    # Initialize embedding service with the loaded model
+    from .embedding_service import init_embedding_service
+    init_embedding_service(sbert_model)
+    print("Embedding service initialized")
 
 async def ensure_indexes():
-    """Create indexes to prevent duplicates"""
+    """Create indexes to prevent duplicates and optimize queries"""
     print("Ensuring database indexes...")
     try:
+        # Existing indexes
         await db.courses.create_index("id", unique=True)
         await db.videos.create_index("id", unique=True)
+        
+        # New indexes for vector search and processing queue
+        await db.videos.create_index("processing_status")
+        await db.videos.create_index([("course_id", 1), ("processing_status", 1)])
+        await db.processing_queue.create_index([("status", 1), ("priority", -1)])
+        await db.processing_queue.create_index("video_id", unique=True)
+        
         print("Database indexes ensured successfully")
     except Exception as e:
         print(f"Error creating indexes: {e}")

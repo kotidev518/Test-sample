@@ -122,6 +122,7 @@ cd Test-sample
 3. Install dependencies:
    ```bash
    pip install -r requirements.txt
+   pip install arq redis
    ```
 
 4. Ensure your `.env` file is configured (see Environment Setup above)

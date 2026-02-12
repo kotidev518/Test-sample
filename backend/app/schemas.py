@@ -72,7 +72,7 @@ class Video(BaseModel):
     duration: int  # seconds
     difficulty: str
     topics: List[str]
-    transcript: str
+    transcript: Optional[str] = ""
     order: int
 
 class VideoProgress(BaseModel):

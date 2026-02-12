@@ -120,7 +120,7 @@ const CourseDetailPage = () => {
                 <h1 className="text-3xl font-heading font-bold tracking-tight-more mb-3">
                   {course.title}
                 </h1>
-                <p className="text-muted-foreground mb-6">{course.description}</p>
+               {/* <p className="text-muted-foreground mb-6">{course.description}</p> */}
                 <div className="flex flex-wrap gap-2">
                   {course.topics.map((topic, idx) => (
                     <span
@@ -173,9 +173,9 @@ const CourseDetailPage = () => {
                         <h3 className="text-lg font-heading font-semibold mb-2 group-hover:text-primary transition-colors">
                           {video.title}
                         </h3>
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {/* <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                           {video.description}
-                        </p>
+                        </p> */}
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />

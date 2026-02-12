@@ -205,15 +205,19 @@ const VideoPlayerPage = () => {
       setVideo(videoData);
       setWatchProgress(progressData?.watch_percentage || 0);
       
-      // Fetch quiz
+      // Fetch quiz (will be generated on-demand by backend if transcript is ready)
       try {
         console.log('Fetching quiz for video:', videoId);
         const quizData = await courseService.getQuiz(videoId);
         console.log('Quiz data received:', quizData);
-        setQuiz(quizData);
-        setQuizAnswers(new Array(quizData.questions.length).fill(-1));
+        if (quizData?.questions?.length >= 4) {
+          setQuiz(quizData);
+          setQuizAnswers(new Array(quizData.questions.length).fill(-1));
+        } else {
+          console.log('Quiz not ready yet (transcript may still be processing)');
+        }
       } catch (error) {
-        console.error('Quiz fetch error:', error);
+        console.log('Quiz not available yet, will retry after video ends');
       }
     } catch (error) {
       console.error('Failed to fetch video data:', error);
@@ -245,13 +249,28 @@ const VideoPlayerPage = () => {
     }
   };
 
-  const handleVideoEnd = () => {
-    console.log('Video ended, showing quiz...');
+  const handleVideoEnd = async () => {
+    console.log('Video ended, checking quiz...');
     updateProgress(100);
-    if (quiz) {
+    
+    if (quiz && quiz.questions?.length >= 4) {
+      // Quiz already loaded - show it immediately
       setShowQuiz(true);
     } else {
-      toast.success('Video completed!');
+      // Try fetching quiz again (transcript may be ready now after watching)
+      try {
+        toast.info('Preparing your quiz...');
+        const quizData = await courseService.getQuiz(videoId);
+        if (quizData?.questions?.length >= 4) {
+          setQuiz(quizData);
+          setQuizAnswers(new Array(quizData.questions.length).fill(-1));
+          setShowQuiz(true);
+        } else {
+          toast.info('Quiz is being prepared. The transcript is still processing — please check back shortly.');
+        }
+      } catch (error) {
+        toast.info('Quiz will be available once the video transcript is processed.');
+      }
     }
   };
 
@@ -393,7 +412,7 @@ const VideoPlayerPage = () => {
                       ))}
                     </div>
                     <h1 className="text-2xl font-heading font-bold mb-2">{video.title}</h1>
-                    <p className="text-muted-foreground">{video.description}</p>
+                   {/* { <p className="text-muted-foreground">{video.description}</p>} */}
                   </div>
                 </CardContent>
               </Card>
@@ -413,42 +432,60 @@ const VideoPlayerPage = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <form onSubmit={handleQuizSubmit} className="space-y-6" data-testid="quiz-form">
-                      {quiz.questions.map((question, qIdx) => (
-                        <div key={qIdx} className="space-y-3">
-                          <Label className="text-base font-medium">
-                            {qIdx + 1}. {question.question}
-                          </Label>
-                          <RadioGroup
-                            value={quizAnswers[qIdx]?.toString()}
-                            onValueChange={(value) => {
-                              const newAnswers = [...quizAnswers];
-                              newAnswers[qIdx] = parseInt(value);
-                              setQuizAnswers(newAnswers);
-                            }}
-                          >
-                            {question.options.map((option, oIdx) => (
-                              <div key={oIdx} className="flex items-center space-x-2">
-                                <RadioGroupItem
-                                  value={oIdx.toString()}
-                                  id={`q${qIdx}-o${oIdx}`}
-                                  data-testid={`quiz-option-${qIdx}-${oIdx}`}
-                                />
-                                <Label
-                                  htmlFor={`q${qIdx}-o${oIdx}`}
-                                  className="font-normal cursor-pointer"
-                                >
-                                  {option}
-                                </Label>
-                              </div>
-                            ))}
-                          </RadioGroup>
-                        </div>
-                      ))}
-                      <Button type="submit" className="w-full" data-testid="submit-quiz-btn">
-                        Submit Quiz
-                      </Button>
-                    </form>
+                    {quiz.questions && quiz.questions.length > 0 ? (
+                      <form onSubmit={handleQuizSubmit} className="space-y-6" data-testid="quiz-form">
+                        {quiz.questions.map((question, qIdx) => (
+                          <div key={qIdx} className="space-y-3">
+                            <Label className="text-base font-medium">
+                              {qIdx + 1}. {question.question}
+                            </Label>
+                            <RadioGroup
+                              value={quizAnswers[qIdx]?.toString()}
+                              onValueChange={(value) => {
+                                const newAnswers = [...quizAnswers];
+                                newAnswers[qIdx] = parseInt(value);
+                                setQuizAnswers(newAnswers);
+                              }}
+                            >
+                              {question.options.map((option, oIdx) => (
+                                <div key={oIdx} className="flex items-center space-x-2">
+                                  <RadioGroupItem
+                                    value={oIdx.toString()}
+                                    id={`q${qIdx}-o${oIdx}`}
+                                    data-testid={`quiz-option-${qIdx}-${oIdx}`}
+                                  />
+                                  <Label
+                                    htmlFor={`q${qIdx}-o${oIdx}`}
+                                    className="font-normal cursor-pointer"
+                                  >
+                                    {option}
+                                  </Label>
+                                </div>
+                              ))}
+                            </RadioGroup>
+                          </div>
+                        ))}
+                        <Button type="submit" className="w-full" data-testid="submit-quiz-btn">
+                          Submit Quiz
+                        </Button>
+                      </form>
+                    ) : (
+                      <div className="text-center py-10">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
+                        <h3 className="text-xl font-medium mb-2">Quiz is being generated</h3>
+                        <p className="text-muted-foreground">
+                          Our AI is analyzing the video transcript to create a custom quiz.
+                          <br />Please check back in a few minutes.
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-6"
+                          onClick={() => window.location.reload()}
+                        >
+                          Refresh Page
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
@@ -568,7 +605,9 @@ const VideoPlayerPage = () => {
                     </div>
                     <p className="font-medium mb-1">Quiz Available</p>
                     <p className="text-sm text-muted-foreground">
-                      {quiz.questions?.length || 4} questions will appear after the video ends
+                      {quiz.questions && quiz.questions.length > 0 
+                        ? `${quiz.questions.length} questions will appear after the video ends`
+                        : "Quiz is currently being generated..."}
                     </p>
                   </CardContent>
                 </Card>

@@ -15,6 +15,7 @@ class Settings:
     FIREBASE_STORAGE_BUCKET: str = os.environ.get('FIREBASE_STORAGE_BUCKET')
     YOUTUBE_API_KEY: str = os.environ.get('YOUTUBE_API_KEY')
     GEMINI_API_KEY: str = os.environ.get('GEMINI_API_KEY')
+    REDIS_URL: str = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
 
     def __init__(self):
         # Resolve absolute path for credentials

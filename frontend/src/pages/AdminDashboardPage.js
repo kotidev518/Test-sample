@@ -270,7 +270,7 @@ const AdminDashboardPage = () => {
                     />
                     <div className="flex-1 min-w-0">
                       <h3 className="text-white font-medium truncate">{course.title}</h3>
-                      <p className="text-gray-400 text-sm truncate">{course.description}</p>
+                      {/* <p className="text-gray-400 text-sm truncate">{course.description}</p> */}
                       <div className="flex items-center gap-4 mt-2">
                         <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded">
                           {course.difficulty}
