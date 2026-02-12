@@ -66,6 +66,9 @@ YOUTUBE_API_KEY=your-youtube-api-key
 
 # Google Gemini API Key
 GEMINI_API_KEY=your-gemini-api-key
+
+# Redis URL (for ARQ background worker)
+REDIS_URL=redis://127.0.0.1:6379
 ```
 
 ### 2. Firebase Service Account
@@ -94,8 +97,8 @@ REACT_APP_FIREBASE_APP_ID=your-app-id
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/Final-project.git
-cd Final-project
+git clone https://github.com/kotidev518/Test-sample.git
+cd Test-sample
 ```
 
 ### 2. Backend Setup (FastAPI)
@@ -127,8 +130,15 @@ cd Final-project
    ```bash
    python server.py
    ```
-   - Server running at: `http://localhost:8000`
    - API Docs: `http://localhost:8000/docs`
+
+6. Run the ARQ Background Worker (Required for Quizzes):
+   - Ensure Redis is running (`docker run -d -p 6379:6379 redis`)
+   - In a **new** terminal, run:
+   ```bash
+   cd backend
+   .\venv\Scripts\python.exe -m arq app.worker.WorkerSettings
+   ```
 
 ### 3. Frontend Setup (React)
 
@@ -161,7 +171,7 @@ cd Final-project
 5. The system will automatically:
    - Fetch playlist metadata (title, description, thumbnail)
    - Import all videos from the playlist
-   - Generate AI-powered quizzes for each video
+   - **Background Processing**: Quizzes and embeddings are generated asynchronously via the ARQ worker to ensure high reliability and zero-latency API responses.
 
 ## 📚 Project Structure
 
@@ -172,6 +182,8 @@ Final-project/
 │   │   ├── routers/          # API route handlers
 │   │   ├── models/           # Data models
 │   │   ├── services/         # Business logic
+│   │   ├── worker.py         # ARQ Background Worker definition
+│   │   ├── queue.py          # ARQ job enqueueing utility
 │   │   └── main.py           # FastAPI app entry
 │   ├── server.py             # Server startup
 │   ├── requirements.txt      # Python dependencies
@@ -209,7 +221,8 @@ After pulling updates:
 | **Firebase Auth Errors** | Verify your Firebase configuration in `.env` files |
 | **MongoDB Connection Failed** | Check your `MONGO_URL` and network access settings |
 | **Videos Not Loading** | Ensure YouTube API key is valid and has quota |
-| **Quiz Generation Failed** | Verify Gemini API key is configured correctly |
+| **Quiz Generation Failed** | Verify Gemini API key is configured AND the ARQ worker is running |
+| **Redis Connection Error** | Ensure Redis server is active and `REDIS_URL` is correct |
 
 ## 📄 License
 
