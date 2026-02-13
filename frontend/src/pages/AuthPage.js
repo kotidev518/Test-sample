@@ -64,9 +64,13 @@ const AuthPage = () => {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       await authService.googleLogin(user.displayName, user.email);
-      await checkUser();
+      const userProfile = await checkUser();
       toast.success('Successfully signed in with Google!');
-      navigate('/dashboard');
+      if (userProfile?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error("Google Sign-In Error:", error);
       let errorMessage = "Google sign-in failed. Please try again.";
@@ -110,7 +114,12 @@ const AuthPage = () => {
         );
         toast.success('Account created successfully!');
       }
-      navigate('/dashboard');
+      const user = await checkUser();
+      if (user?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       let errorMessage = 'Authentication failed';
       if (error.code) {
