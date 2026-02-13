@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from firebase_admin import auth as firebase_auth
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.schemas import UserProfile, UserProfileCreate, UserDB
+from app.utils.email_validator import validate_email_domain
 
 class AuthService:
     def __init__(self, db: AsyncIOMotorDatabase):
@@ -19,8 +20,24 @@ class AuthService:
             if not firebase_uid or not email:
                 raise HTTPException(status_code=401, detail="Invalid token")
             
-            # Check if user exists by UID
+            # Check if user already exists in our database
             user = await self.db.users.find_one({"firebase_uid": firebase_uid}, {"_id": 0})
+            
+            # If user is NOT in our database, we MUST validate their domain before proceeding
+            # This covers both standard registration and first-time Google logins.
+            if not user:
+                # First check if they exist by email (migration case)
+                existing_by_email = await self.db.users.find_one({"email": email}, {"id": 1})
+                if not existing_by_email:
+                    # Brand new user -> strict domain validation
+                    try:
+                        validate_email_domain(email)
+                    except HTTPException:
+                        raise
+                    except Exception:
+                        raise HTTPException(status_code=400, detail="enter a valid domain")
+            
+            # Proceed with login/lookup logic
             if user:
                 return self._map_to_profile(user)
             
@@ -51,8 +68,9 @@ class AuthService:
             raise HTTPException(status_code=401, detail="Token expired")
         except firebase_auth.InvalidIdTokenError:
             raise HTTPException(status_code=401, detail="Invalid token")
+        except HTTPException:
+            raise
         except Exception as e:
-            if isinstance(e, HTTPException): raise e
             raise HTTPException(status_code=500, detail=str(e))
 
     async def get_user_by_firebase_uid(self, firebase_uid: str) -> Optional[dict]:

@@ -7,6 +7,21 @@ from ..services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+@router.get("/validate-email")
+async def validate_email(email: str):
+    """
+    Pre-flight check for email domain legitimacy.
+    """
+    from ..utils.email_validator import validate_email_domain
+    print(f"🔍 Validating email domain: {email}")
+    try:
+        validate_email_domain(email)
+        print(f"✅ Domain valid: {email}")
+        return {"status": "valid"}
+    except Exception as e:
+        print(f"❌ Domain validation failed: {str(e)}")
+        raise
+
 @router.post("/register", response_model=UserProfile)
 async def register(
     user_data: UserProfileCreate, 

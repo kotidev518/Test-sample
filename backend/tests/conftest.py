@@ -3,8 +3,6 @@ from unittest.mock import MagicMock, patch
 
 from mongomock_motor import AsyncMongoMockClient
 
-from mongomock_motor import AsyncMongoMockClient
-
 @pytest.fixture
 def mock_db():
     mock_client = AsyncMongoMockClient()

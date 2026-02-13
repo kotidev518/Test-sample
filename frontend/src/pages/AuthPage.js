@@ -38,6 +38,7 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [emailError, setEmailError] = useState('');
   
   // Forgot password modal state
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -98,6 +99,9 @@ const AuthPage = () => {
         await checkUser();
         toast.success('Welcome back!');
       } else {
+        // Pre-flight check: Validate email domain before Firebase creates the account
+        await authService.validateEmail(formData.email);
+
         await authContextRegister(
           formData.email,
           formData.password,
@@ -133,6 +137,11 @@ const AuthPage = () => {
         }
       } else if (error.response?.data?.detail) {
         errorMessage = error.response.data.detail;
+        if (errorMessage === 'enter a valid domain') {
+          setEmailError('enter a valid domain');
+          setLoading(false);
+          return;
+        }
       }
       toast.error(errorMessage);
     } finally {
@@ -149,26 +158,53 @@ const AuthPage = () => {
     }
     
     setResetLoading(true);
+    console.log("Starting password reset flow for:", resetEmail);
+    
     try {
+      // 1. Pre-flight check: Validate email domain via our backend
+      console.log("Calling backend validation...");
+      await authService.validateEmail(resetEmail);
+      console.log("Backend validation successful.");
+      
+      // 2. If valid, trigger real Firebase Password Reset Email
+      // Use the already imported sendPasswordResetEmail from line 14
+      console.log("Triggering Firebase password reset email...");
       await sendPasswordResetEmail(auth, resetEmail);
+      console.log("Firebase password reset email triggered successfully.");
+      
       toast.success('Password reset email sent! Check your inbox.');
       setForgotPasswordOpen(false);
       setResetEmail('');
     } catch (error) {
       console.error("Password Reset Error:", error);
       let errorMessage = 'Failed to send reset email';
-      if (error.code === 'auth/user-not-found') {
-        errorMessage = 'No account found with this email.';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Please enter a valid email address.';
+      
+      if (error.response?.data?.detail) {
+        // Backend validation error (e.g. "enter a valid domain")
+        errorMessage = error.response.data.detail;
+      } else if (error.code) {
+        // Firebase specific errors
+        switch (error.code) {
+          case 'auth/user-not-found':
+            errorMessage = 'No account found with this email.';
+            break;
+          case 'auth/invalid-email':
+            errorMessage = 'Please enter a valid email address.';
+            break;
+          default:
+            errorMessage = error.message;
+        }
       }
+      
       toast.error(errorMessage);
     } finally {
+      console.log("Reset password flow completed.");
       setResetLoading(false);
     }
   };
 
   const handleChange = (e) => {
+    if (e.target.name === 'email') setEmailError('');
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -249,8 +285,18 @@ const AuthPage = () => {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="h-9 text-sm rounded-lg bg-gray-50 border-gray-200"
+                  className={`h-9 text-sm rounded-lg bg-gray-50 border-gray-200 ${emailError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
                 />
+                {emailError && (
+                  <motion.p 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="text-[10px] text-red-500 mt-1 font-medium ml-1 flex items-center gap-1"
+                  >
+                    <XCircle size={10} />
+                    {emailError}
+                  </motion.p>
+                )}
               </div>
 
               {/* Password */}

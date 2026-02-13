@@ -3,7 +3,7 @@ from typing import Optional
 import jwt
 import bcrypt
 from firebase_admin import storage
-from .config import settings
+from ..config import settings
 
 def get_video_url(url_or_path: str) -> str:
     """
