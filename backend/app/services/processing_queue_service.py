@@ -12,10 +12,11 @@ from datetime import datetime, timezone
 from typing import Optional, List
 from bson import ObjectId
 
-from .database import db
-from .transcript_service import transcript_service
-from . import embedding_service as embedding_module
-from .queue import enqueue_quiz_job
+from app.database import db
+from app.services.transcript_service import transcript_service
+from app.services import embedding_service as embedding_module
+from app.queue import enqueue_quiz_job
+from app.schemas import ProcessingJobDB
 
 
 class ProcessingQueueWorker:
@@ -34,8 +35,12 @@ class ProcessingQueueWorker:
         Start the background worker loop.
         Processes up to max_concurrent jobs in parallel every poll_interval seconds.
         """
+        if self.is_running:
+            print("Processing queue worker already running")
+            return
+
         self.is_running = True
-        print(f"🚀 Processing queue worker started (max_concurrent={self.max_concurrent})")
+        print(f" Processing queue worker started (max_concurrent={self.max_concurrent})")
 
         try:
             while self.is_running:
@@ -88,7 +93,7 @@ class ProcessingQueueWorker:
                 {
                     "$set": {
                         "status": "processing",
-                        "updated_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
                     }
                 },
                 sort=[("priority", -1), ("created_at", 1)],
@@ -135,31 +140,61 @@ class ProcessingQueueWorker:
 
             print(f"  ✓ Transcript fetched ({len(transcript)} chars)")
 
-            # Step 3: Generate SBERT embedding
-            print(f"  🧠 Generating embedding for {video_id}...")
-            embedding_binary = await embedding_module.embedding_service.generate_embedding(transcript)
+            # Step 3: Generate and Store Embeddings (Full & Chunked)
+            print(f"  🧠 Generating embeddings for {video_id}...")
+            
+            # Sub-step 3a: Create chunks for long-form search
+            chunks = embedding_module.embedding_service.chunk_text(transcript)
+            print(f"  📦 Created {len(chunks)} chunks for semantic search")
+            
+            # Sub-step 3b: Batch generate all embeddings (1 for full transcript + 1 per chunk)
+            all_texts_to_embed = [transcript] + chunks
+            all_embeddings = await embedding_module.embedding_service.generate_embeddings_batch(all_texts_to_embed)
+            
+            full_embedding = all_embeddings[0]
+            chunk_embeddings = all_embeddings[1:]
+            
+            if not full_embedding:
+                raise Exception("Failed to generate main embedding")
 
-            if not embedding_binary:
-                raise Exception("Failed to generate embedding")
+            # Sub-step 3c: Store chunks in the database
+            if len(chunks) > 1:
+                chunk_docs = []
+                for i, (chunk_text, chunk_emb) in enumerate(zip(chunks, chunk_embeddings)):
+                    if chunk_emb:
+                        chunk_docs.append({
+                            "video_id": video_id,
+                            "chunk_index": i,
+                            "text": chunk_text,
+                            "embedding": chunk_emb,
+                            "created_at": datetime.now(timezone.utc)
+                        })
+                
+                if chunk_docs:
+                    # Clear old chunks if any and insert new ones
+                    await db.video_chunks.delete_many({"video_id": video_id})
+                    await db.video_chunks.insert_many(chunk_docs)
+                    print(f"  ✓ Stored {len(chunk_docs)} chunks in video_chunks collection")
 
-            print(f"  ✓ Embedding generated")
+            print(f"  ✓ Embeddings generated")
 
             # Step 4: Enqueue Quiz Generation to ARQ
-            # This offloads the slow AI work to a robust queue with parallelism and retries
             await enqueue_quiz_job(video_id)
 
-            # Step 5: Update video with transcript and embedding
+            # Step 5: Update video with full transcript and main embedding
             now = datetime.now(timezone.utc)
             update_result = await db.videos.update_one(
                 {"id": video_id},
                 {
                     "$set": {
                         "transcript": transcript,
-                        "embedding": embedding_binary,
+                        "embedding": full_embedding,
                         "embedding_model": embedding_module.embedding_service.MODEL_NAME,
                         "processing_status": "completed",
                         "embedding_generated_at": now,
                         "transcript_fetched_at": now,
+                        "is_chunked": len(chunks) > 1,
+                        "chunk_count": len(chunks)
                     }
                 },
             )
@@ -173,7 +208,7 @@ class ProcessingQueueWorker:
                 {
                     "$set": {
                         "status": "completed",
-                        "updated_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
                     }
                 },
             )
@@ -208,7 +243,7 @@ class ProcessingQueueWorker:
                         "status": "failed",
                         "error_message": error_msg,
                         "retry_count": retry_count,
-                        "updated_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
                     }
                 },
             )
@@ -237,7 +272,7 @@ class ProcessingQueueWorker:
                         "status": "pending",
                         "error_message": error_msg,
                         "retry_count": retry_count,
-                        "updated_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
                     }
                 },
             )
@@ -263,17 +298,17 @@ class ProcessingQueueWorker:
                 print(f"Video {video_id} already in queue (status: {existing.get('status')})")
                 return False
 
-            job = {
-                "video_id": video_id,
-                "status": "pending",
-                "priority": priority,
-                "retry_count": 0,
-                "error_message": "",
-                "created_at": datetime.now(timezone.utc),
-                "updated_at": datetime.now(timezone.utc),
-            }
+            job = ProcessingJobDB(
+                video_id=video_id,
+                status="pending",
+                priority=priority,
+                retry_count=0,
+                error_message="",
+                created_at=datetime.now(timezone.utc).isoformat(),
+                updated_at=datetime.now(timezone.utc).isoformat(),
+            )
 
-            await db.processing_queue.insert_one(job)
+            await db.processing_queue.insert_one(job.model_dump())
             print(f"✓ Added {video_id} to processing queue (priority: {priority})")
             return True
 
@@ -396,13 +431,13 @@ class ProcessingQueueWorker:
                     "status": "pending",
                     "retry_count": 0,
                     "error_message": "",
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
                 }
             },
         )
 
         count = result.modified_count
-        print(f"🔄 Reset {count} failed jobs to pending")
+        print(f"Reset {count} failed jobs to pending")
         return count
 
     async def clear_completed_jobs(self, older_than_days: int = 7) -> int:

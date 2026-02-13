@@ -1,28 +1,4 @@
-import os
-from pathlib import Path
-from dotenv import load_dotenv
+from .core.config import settings
 
-# Load environment variables
-ROOT_DIR = Path(__file__).parent.parent
-load_dotenv(ROOT_DIR / '.env')
-
-class Settings:
-    MONGO_URL: str = os.environ.get('MONGO_URL')
-    DB_NAME: str = os.environ.get('DB_NAME')
-    JWT_SECRET: str = os.environ.get('JWT_SECRET')
-    JWT_ALGORITHM: str = 'HS256'
-    JWT_EXPIRATION_HOURS: int = 72
-    FIREBASE_STORAGE_BUCKET: str = os.environ.get('FIREBASE_STORAGE_BUCKET')
-    YOUTUBE_API_KEY: str = os.environ.get('YOUTUBE_API_KEY')
-    GEMINI_API_KEY: str = os.environ.get('GEMINI_API_KEY')
-    REDIS_URL: str = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
-
-    def __init__(self):
-        # Resolve absolute path for credentials
-        creds = os.environ.get('FIREBASE_CREDENTIALS', 'serviceAccountKey.json')
-        if not os.path.isabs(creds):
-            self.FIREBASE_CREDENTIALS = str(ROOT_DIR / creds)
-        else:
-            self.FIREBASE_CREDENTIALS = creds
-
-settings = Settings()
+# For backward compatibility
+ROOT_DIR = settings.BASE_DIR

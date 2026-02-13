@@ -46,6 +46,9 @@ class UserProfile(BaseModel):
     role: str = "student"  # "student" or "admin"
     created_at: str
 
+class UserDB(UserProfile):
+    firebase_uid: str
+
 class TokenResponse(BaseModel):
     token: str
     user: UserProfile
@@ -59,6 +62,11 @@ class Course(BaseModel):
     topics: List[str]
     thumbnail: str
     video_count: int
+
+class CourseDB(Course):
+    channel: Optional[str] = None
+    imported_at: str
+    imported_by: str
 
 class Video(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -74,6 +82,9 @@ class Video(BaseModel):
     topics: List[str]
     transcript: Optional[str] = ""
     order: int
+
+class VideoDB(Video):
+    processing_status: str = "pending"  # pending, processing, completed, failed
 
 class VideoProgress(BaseModel):
     user_id: str
@@ -121,3 +132,19 @@ class NextVideoRecommendation(BaseModel):
     video: Video
     reason: str
     mastery_scores: dict
+
+class ChatRequest(BaseModel):
+    message: str
+
+class ChatResponse(BaseModel):
+    answer: str
+
+class ProcessingJobDB(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    video_id: str
+    status: str = "pending"  # pending, processing, completed, failed
+    priority: int = 0
+    retry_count: int = 0
+    error_message: str = ""
+    created_at: str
+    updated_at: str

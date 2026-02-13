@@ -33,5 +33,9 @@ export const courseService = {
   submitQuiz: async (data) => {
       const response = await api.post('/quizzes/submit', data);
       return response.data;
+  },
+  chatWithVideo: async (videoId, message) => {
+      const response = await api.post(`/videos/${videoId}/chat`, { message });
+      return response.data;
   }
 };

@@ -6,7 +6,8 @@ Gemini AI Service for generating video metadata
 import aiohttp
 import json
 from typing import List, Optional
-from .config import settings
+from app.database import db
+from app.core.config import settings
 
 
 class GeminiService:
@@ -28,7 +29,7 @@ class GeminiService:
         # Prefer transcript over description for better accuracy
         content_source = ""
         if transcript:
-            content_source = f"Transcript (first 800 chars): {transcript[:800]}"
+            content_source = f"Transcript: {transcript}"
         elif video_description:
             content_source = f"Description Preview: {video_description[:500]}"
         else:
@@ -67,7 +68,7 @@ Topics should be:
         
         # Build the content section based on what's available
         if transcript:
-            content_section = f"Video Transcript (first 1500 chars):\n{transcript[:1500]}"
+            content_section = f"Video Transcript:\n{transcript}"
         else:
             content_section = f"Original Description:\n{video_description}"
         
@@ -107,8 +108,8 @@ Instructions:
         
         topic_str = ", ".join(topics) if topics else "General programming"
         
-        # Use up to 2000 chars of transcript for richer quiz content
-        content_text = video_transcript[:2000] if video_transcript else f"Educational content about {video_title}"
+        # Use full transcript for richer quiz content
+        content_text = video_transcript if video_transcript else f"Educational content about {video_title}"
         print(f"Generating quiz for '{video_title}' | Transcript length: {len(video_transcript)} chars | Questions: {num_questions}")
         
         prompt = f"""Generate exactly {num_questions} multiple choice quiz questions for an educational video.
@@ -185,11 +186,52 @@ Requirements:
         
         # Return empty list on failure instead of static fallback
         return []
-    
+
+    async def ask_video_chatbot(self, user_name: str, video_title: str, video_transcript: str, user_question: str) -> str:
+        """
+        Answering user questions about a specific video using Gemini AI.
+        """
+        if not self.api_key:
+            return "I'm sorry, I cannot answer questions at the moment as the AI service is not configured."
+
+        # Expanded greeting detection
+        clean_question = user_question.lower().strip().rstrip('?')
+        greetings = ['hi', 'hello', 'hey', 'greetings', 'how are you', 'howdy', 'hi there', 'hello there']
+        if clean_question in greetings:
+            return f"hi {user_name}. what would you like me to answer?"
+
+        # Context-aware answering
+        prompt = f"""You are an educational assistant chatbot for a video learning platform.
+The user is watching a video titled: "{video_title}"
+
+Transcript of the video:
+{video_transcript}
+
+User Question: "{user_question}"
+
+Instructions:
+1. Provide a clear, helpful answer based ONLY on the video content provided in the transcript.
+2. If the answer is not in the transcript, politely say you don't have that information.
+3. For content-related questions (e.g., "What is X?", "Explain Y"), your answer MUST be between 100-150 words.
+4. For simple greetings or non-content conversational questions that weren't caught by the system, respond very briefly (under 20 words) like: "hi {user_name}. what would you like me to answer?"
+5. Use a friendly, encouraging tone.
+6. Do NOT include any filler text like "Based on the transcript..." or "Hi there!". Just answer the question directly.
+
+Answer:
+"""
+        try:
+            result = await self._call_gemini(prompt, max_tokens=600)
+            if result:
+                return result.strip()
+        except Exception as e:
+            print(f"Gemini chatbot error: {e}")
+        
+        return "I'm sorry, I'm having trouble processing your question right now. Please try again later."
+
     def _fallback_quiz(self, title: str, topics: List[str], difficulty: str) -> List[dict]:
         """Generate basic quiz if AI fails - DEPRECATED: Returns empty list now"""
         return []
-    
+
     async def _call_gemini(self, prompt: str, max_tokens: int = 200) -> Optional[str]:
         """Make API call to Gemini with retry for rate limits"""
         import asyncio

@@ -17,8 +17,6 @@ from youtube_transcript_api._errors import (
 class TranscriptService:
     """Service to fetch YouTube video transcripts"""
 
-    MAX_TRANSCRIPT_CHARS = 5000  # Cap to keep Gemini prompts reasonable
-
     def __init__(self):
         self._api = YouTubeTranscriptApi()
 
@@ -64,9 +62,8 @@ class TranscriptService:
         return None
 
     def _join_entries(self, entries) -> str:
-        """Join transcript entries into a single string, capped at MAX_TRANSCRIPT_CHARS"""
-        text = " ".join(snippet.text for snippet in entries)
-        return text[: self.MAX_TRANSCRIPT_CHARS]
+        """Join transcript entries into a single string without capping"""
+        return " ".join(snippet.text for snippet in entries)
 
     async def get_transcript(self, video_id: str) -> str:
         """

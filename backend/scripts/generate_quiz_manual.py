@@ -1,6 +1,10 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import asyncio
 from app.database import db
-from app.gemini_service import gemini_service
+from app.services.gemini_service import gemini_service
 
 async def generate_quiz():
     # Correct video ID from screenshot URL

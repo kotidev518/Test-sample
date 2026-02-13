@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, MessageSquare, Send, User, Bot, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -175,6 +176,18 @@ const VideoPlayerPage = () => {
   const [quizResult, setQuizResult] = useState(null);
   const [nextVideo, setNextVideo] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Chatbot state
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   useEffect(() => {
     fetchVideoData();
@@ -323,6 +336,27 @@ const VideoPlayerPage = () => {
     } catch (error) {
       console.error('Failed to compute/submit quiz:', error);
       toast.error('Failed to submit quiz');
+    }
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!inputMessage.trim() || sendingMessage) return;
+
+    const userMessage = inputMessage.trim();
+    setInputMessage('');
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setSendingMessage(true);
+
+    try {
+      const response = await courseService.chatWithVideo(videoId, userMessage);
+      setMessages(prev => [...prev, { role: 'bot', content: response.answer }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      toast.error('Failed to get answer from chatbot');
+      setMessages(prev => [...prev, { role: 'bot', content: "I'm sorry, I'm having trouble connecting to the AI. Please try again." }]);
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -587,6 +621,85 @@ const VideoPlayerPage = () => {
                         </Badge>
                       ))}
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Chatbot Sidebar Item */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className="flex flex-col h-[500px]">
+                <CardHeader className="py-4 px-6 border-b">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-lg font-heading">Video Assistant</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
+                  <div 
+                    ref={scrollRef}
+                    className="flex-1 overflow-y-auto p-4 space-y-4"
+                  >
+                    {messages.length === 0 ? (
+                      <div className="text-center py-8 px-4">
+                        <Bot className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-20" />
+                        <p className="text-sm text-muted-foreground">
+                          Ask me anything about this video! 
+                        </p>
+                      </div>
+                    ) : (
+                      messages.map((msg, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div className={`flex gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                            <div className={`mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${msg.role === 'user' ? 'bg-primary/10' : 'bg-muted'}`}>
+                              {msg.role === 'user' ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
+                            </div>
+                            <div className={`p-3 rounded-2xl text-sm ${
+                              msg.role === 'user' 
+                                ? 'bg-primary text-primary-foreground rounded-tr-none' 
+                                : 'bg-muted rounded-tl-none'
+                            }`}>
+                              {msg.content}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    {sendingMessage && (
+                      <div className="flex justify-start">
+                        <div className="flex gap-2 max-w-[85%]">
+                          <div className="mt-1 flex-shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                            <Bot className="h-3 w-3" />
+                          </div>
+                          <div className="bg-muted p-3 rounded-2xl rounded-tl-none flex items-center gap-2">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span className="text-xs text-muted-foreground italic">Thinking...</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-4 border-t bg-card">
+                    <form onSubmit={handleSendMessage} className="flex gap-2">
+                      <Input 
+                        placeholder="Ask a question..." 
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        className="bg-muted/50"
+                        disabled={sendingMessage}
+                      />
+                      <Button size="icon" type="submit" disabled={sendingMessage || !inputMessage.trim()}>
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </form>
                   </div>
                 </CardContent>
               </Card>

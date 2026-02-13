@@ -5,32 +5,31 @@ Thumbs.db
 .vscode/
 
 # Environment Variables
-.env
-.env.local
-.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
 
 # Python (Backend)
-__pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
-venv/
-.venv/
-env/
-backend/.env
+**/venv/
+**/.venv/
+**/env/
 
 # Node.js (Frontend)
-node_modules/
-build/
-dist/
+**/node_modules/
+frontend/build/
+frontend/dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnp
 .pnp.js
 coverage/
-frontend/.env
 
-backend/serviceAccountKey.json
+# Firebase service account (sensitive)
+**/serviceAccountKey.json
 
 # Debug and data files
 backend/routes.txt
@@ -47,10 +46,6 @@ pip-wheel-metadata/
 .cache/
 .coverage
 
-# Ignore any venv folders anywhere
-**/venv/
-**/.venv/
-
 # Logs
 *.log
 
@@ -61,15 +56,3 @@ Thumbs.db
 # Editor directories
 .vscode/
 .idea/
-
-# Local env files
-.env.local
-.env.*.local
-
-# Build artifacts
-frontend/.parcel-cache/
-frontend/build/
-frontend/dist/
-
-# Firebase service account (sensitive) - already listed specifically
-backend/serviceAccountKey.json

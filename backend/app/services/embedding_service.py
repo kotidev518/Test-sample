@@ -15,16 +15,47 @@ class EmbeddingService:
     MODEL_NAME = "all-MiniLM-L6-v2"
     EMBEDDING_DIM = 384
     
-    def __init__(self, model):
-        """
-        Initialize with pre-loaded SBERT model
-        
-        Args:
-            model: Pre-loaded SentenceTransformer model from database.py
-        """
-        self.model = model
-        print(f"EmbeddingService initialized with {self.MODEL_NAME}")
+import threading
+import time
+
+
+class EmbeddingService:
+    """Service to generate and manage SBERT embeddings with Lazy Loading"""
     
+    MODEL_NAME = "all-MiniLM-L6-v2"
+    EMBEDDING_DIM = 384
+    
+    def __init__(self):
+        """
+        Initialize the embedding service. 
+        Model is NOT loaded here to save startup time and RAM.
+        """
+        self._model = None
+        self._lock = threading.Lock()
+        print(f"EmbeddingService initialized (Lazy Loading mode enabled)")
+    
+    @property
+    def model(self):
+        """Public access to the model, triggers lazy loading."""
+        return self._get_model()
+
+    def _get_model(self):
+        """
+        Lazily load the SentenceTransformer model if not already loaded.
+        Thread-safe to prevent multiple threads from loading the model simultaneously.
+        """
+        if self._model is None:
+            with self._lock:
+                # Check again in case another thread loaded it while we were waiting for the lock
+                if self._model is None:
+                    from sentence_transformers import SentenceTransformer
+                    print(f"--- LAZY LOADING SBERT MODEL: {self.MODEL_NAME} ---")
+                    start_time = time.time()
+                    self._model = SentenceTransformer(f'sentence-transformers/{self.MODEL_NAME}')
+                    duration = time.time() - start_time
+                    print(f"--- SBERT MODEL LOADED SUCCESSFULLY (Time: {duration:.2f}s) ---")
+        return self._model
+
     async def generate_embedding(self, text: str) -> Optional[bytes]:
         """
         Generate normalized SBERT embedding for a single text.
@@ -66,7 +97,7 @@ class EmbeddingService:
     
     async def generate_embeddings_batch(self, texts: List[str]) -> List[Optional[bytes]]:
         """
-        Generate embeddings for multiple texts in batch.
+        Generate embeddings for multiple texts in batch efficiently.
         
         Args:
             texts: List of texts to embed
@@ -74,18 +105,84 @@ class EmbeddingService:
         Returns:
             List of binary embeddings (same order as input)
         """
-        results = []
-        for text in texts:
-            embedding = await self.generate_embedding(text)
-            results.append(embedding)
-        return results
+        if not texts:
+            return []
+            
+        try:
+            # Prepare all texts (clean and truncate)
+            prepared_texts = [
+                self._truncate_to_tokens(self._clean_text(t), max_tokens=512)
+                for t in texts
+            ]
+            
+            # Generate all embeddings in one call to the model
+            loop = asyncio.get_event_loop()
+            embeddings = await loop.run_in_executor(
+                None,
+                self._generate_embeddings_batch_sync,
+                prepared_texts
+            )
+            
+            # Normalize and convert each to binary
+            results = []
+            for emb in embeddings:
+                normalized = self._normalize_embedding(emb)
+                results.append(self._embedding_to_binary(normalized))
+                
+            return results
+            
+        except Exception as e:
+            print(f"Error in batch embedding: {e}")
+            return [None] * len(texts)
+
+    def _generate_embeddings_batch_sync(self, texts: List[str]) -> np.ndarray:
+        """Synchronous batch encoding using the SBERT model"""
+        model = self._get_model()
+        return model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+
+    def chunk_text(self, text: str, chunk_size_chars: int = 3000, overlap_chars: int = 300) -> List[str]:
+        """
+        Break long text into overlapping chunks.
+        
+        Args:
+            text: Input transcript text
+            chunk_size_chars: Target characters per chunk (~500 words)
+            overlap_chars: Overlap between chunks to maintain context
+            
+        Returns:
+            List of text chunks
+        """
+        if not text:
+            return []
+            
+        if len(text) <= chunk_size_chars:
+            return [text]
+            
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = start + chunk_size_chars
+            # If not at the end, try to find the last space to avoid cutting words
+            if end < len(text):
+                last_space = text.rfind(' ', start, end)
+                if last_space != -1 and last_space > start:
+                    end = last_space
+            
+            chunks.append(text[start:end].strip())
+            start = end - overlap_chars
+            
+            # Prevent infinite loop if something goes wrong
+            if start < 0: start = 0
+            
+        return chunks
     
     def _generate_embedding_sync(self, text: str) -> np.ndarray:
         """
         Synchronously generate embedding using SBERT model.
         This is CPU-bound and should be run in executor.
         """
-        embedding = self.model.encode(text, convert_to_numpy=True)
+        model = self._get_model()
+        embedding = model.encode(text, convert_to_numpy=True)
         return embedding
     
     def _normalize_embedding(self, embedding: np.ndarray) -> np.ndarray:
@@ -244,18 +341,16 @@ class EmbeddingService:
         return truncated
 
 
-# Singleton instance (initialized in database.py after model loads)
-embedding_service: Optional[EmbeddingService] = None
+# Singleton instance
+embedding_service: EmbeddingService = EmbeddingService()
 
 
-def init_embedding_service(sbert_model):
+def init_embedding_service():
     """
-    Initialize the global embedding service with the loaded model.
-    Should be called from database.py after loading SBERT model.
-    
-    Args:
-        sbert_model: Pre-loaded SentenceTransformer model
+    Ensure the global embedding service is initialized.
+    No longer requires pre-loaded model.
     """
     global embedding_service
-    embedding_service = EmbeddingService(sbert_model)
+    if embedding_service is None:
+        embedding_service = EmbeddingService()
     return embedding_service

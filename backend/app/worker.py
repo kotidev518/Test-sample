@@ -1,7 +1,7 @@
 import asyncio
 from arq.connections import RedisSettings
 from .database import db, init_firebase
-from .gemini_service import gemini_service
+from .services.gemini_service import gemini_service
 from .config import settings
 from datetime import datetime, timezone
 

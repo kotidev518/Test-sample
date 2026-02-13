@@ -2,10 +2,14 @@
 Test script to verify SBERT embedding system functionality
 Run this after starting the backend server
 """
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 import asyncio
-from app.embedding_service import embedding_service
-from app.transcript_service import transcript_service
-from app.processing_queue_service import processing_worker
+from app.services.embedding_service import embedding_service
+from app.services.transcript_service import transcript_service
+from app.services.processing_queue_service import processing_worker
 from app.database import db
 
 

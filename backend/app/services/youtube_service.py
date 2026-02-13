@@ -4,7 +4,8 @@ YouTube Data API Service for fetching playlist and video metadata
 import re
 import aiohttp
 from typing import Optional, List, Dict, Any
-from .config import settings
+from app.database import db
+from app.core.config import settings
 
 
 class YouTubeService:
