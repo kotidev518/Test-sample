@@ -14,6 +14,7 @@ import CourseDetailPage from '@/pages/CourseDetailPage';
 import VideoPlayerPage from '@/pages/VideoPlayerPage';
 import AnalyticsPage from '@/pages/AnalyticsPage';
 import AdminDashboardPage from '@/pages/AdminDashboardPage';
+import AdminLoginPage from '@/pages/AdminLoginPage';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -108,6 +109,14 @@ function AppContent() {
           element={
             <PublicRoute>
               <AuthPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/admin-login"
+          element={
+            <PublicRoute>
+              <AdminLoginPage />
             </PublicRoute>
           }
         />
