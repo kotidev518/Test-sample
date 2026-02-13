@@ -21,7 +21,7 @@ def mock_firebase_auth():
     with patch('firebase_admin.auth.verify_id_token') as mock:
         mock.return_value = {
             'uid': 'test_uid',
-            'email': 'test@example.com'
+            'email': 'test@gmail.com'
         }
         yield mock
 

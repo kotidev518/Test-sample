@@ -25,7 +25,7 @@ async def client(mock_db):
             if not user:
                 return {
                     "id": "default_id",
-                    "email": "test@example.com",
+                    "email": "test@gmail.com",
                     "name": "Default User",
                     "role": "student",
                     "created_at": "2024-01-01"
@@ -60,7 +60,7 @@ async def test_auth_register_success(client, mock_db, mock_firebase_auth, auth_h
         
         assert response.status_code == 200
         data = response.json()
-        assert data["email"] == "test@example.com" # From mock_firebase_auth return_value
+        assert data["email"] == "test@gmail.com" # From mock_firebase_auth return_value
         assert data["name"] == "Integration User"
         
         # Verify user in mock DB
@@ -74,7 +74,7 @@ async def test_get_courses_empty(client, mock_db, mock_firebase_auth, auth_heade
     await mock_db.users.insert_one({
         "id": "user_123",
         "firebase_uid": "test_uid",
-        "email": "test@example.com",
+        "email": "test@gmail.com",
         "name": "Test User",
         "role": "student",
         "created_at": "2024-01-01"
@@ -90,7 +90,7 @@ async def test_get_courses_with_data(client, mock_db, mock_firebase_auth, auth_h
     await mock_db.users.insert_one({
         "id": "user_123",
         "firebase_uid": "test_uid",
-        "email": "test@example.com",
+        "email": "test@gmail.com",
         "name": "Test User",
         "role": "student",
         "created_at": "2024-01-01"

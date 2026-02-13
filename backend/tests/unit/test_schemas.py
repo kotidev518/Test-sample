@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 def test_user_register_schema_valid():
     data = {
-        "email": "test@example.com",
+        "email": "test@gmail.com",
         "password": "Password@123",
         "name": "Test User"
     }
@@ -14,7 +14,7 @@ def test_user_register_schema_valid():
 
 def test_user_register_schema_invalid_password():
     data = {
-        "email": "test@example.com",
+        "email": "test@gmail.com",
         "password": "weak",
         "name": "Test User"
     }
@@ -24,7 +24,7 @@ def test_user_register_schema_invalid_password():
 
 def test_user_login_schema():
     data = {
-        "email": "test@example.com",
+        "email": "test@gmail.com",
         "password": "Password@123"
     }
     login = UserLogin(**data)

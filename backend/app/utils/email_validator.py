@@ -16,6 +16,16 @@ PUBLIC_PROVIDER_ALLOWLIST = {
     "aol.com",
 }
 
+# Known disposable email providers to block
+DISPOSABLE_DOMAINS = {
+    "mailinator.com",
+    "yopmail.com",
+    "tempmail.com",
+    "guerrillamail.com",
+    "10minutemail.com",
+    "temp-mail.org",
+}
+
 # Trusted Top-Level Domains (Academic/Institutional/Government)
 TRUSTED_TLDS = {
     "edu", "gov", "ac.in", "ac.uk", "org", "edu.in", "mil", "int"
