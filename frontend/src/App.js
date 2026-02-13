@@ -19,9 +19,9 @@ import AdminLoginPage from '@/pages/AdminLoginPage';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// Protected Route Component
+// Protected Route Component (for students)
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -31,7 +31,16 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  return isAuthenticated ? children : <Navigate to="/auth" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // If authenticated but user is an admin, redirect to admin dashboard
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+
+  return children;
 };
 
 // Admin Route Component (requires admin role)
@@ -47,7 +56,7 @@ const AdminRoute = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/admin-login" replace />;
   }
 
   if (user?.role !== 'admin') {
@@ -57,9 +66,9 @@ const AdminRoute = ({ children }) => {
   return children;
 };
 
-// Public Route Component (redirects to dashboard if authenticated)
+// Public Route Component (redirects to respective dashboards if authenticated)
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -69,7 +78,13 @@ const PublicRoute = ({ children }) => {
     );
   }
 
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
+  if (isAuthenticated) {
+    return user?.role === 'admin' 
+      ? <Navigate to="/admin" replace /> 
+      : <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
 };
 
 // Initialize Data Component

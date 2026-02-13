@@ -12,11 +12,12 @@ import {
   Video,
   ArrowLeft,
   Youtube,
-  BookOpen
+  BookOpen,
+  LogOut
 } from 'lucide-react';
 
 const AdminDashboardPage = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   
   const [playlistUrl, setPlaylistUrl] = useState('');
@@ -128,8 +129,25 @@ const AdminDashboardPage = () => {
                 <p className="text-gray-400 text-sm">Manage courses and import YouTube playlists</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 rounded-lg border border-purple-500/30">
-              <span className="text-purple-400 text-sm font-medium">Admin: {user.name}</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 rounded-lg border border-purple-500/30">
+                <span className="text-purple-400 text-sm font-medium">Admin: {user.name}</span>
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    await logout();
+                    toast.success('Logged out successfully');
+                    navigate('/admin-login');
+                  } catch (error) {
+                    toast.error('Failed to logout');
+                  }
+                }}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors group"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5 text-gray-400 group-hover:text-red-400" />
+              </button>
             </div>
           </div>
         </div>
