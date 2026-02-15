@@ -48,13 +48,19 @@ class PlaylistService:
                 all_tags.add(tag)
         course_topics = list(all_tags)[:10] if all_tags else ['General']
         
+        # Decide which thumbnail to use for the course
+        course_thumbnail = playlist_details['thumbnail']
+        if "landscape" in course_thumbnail or not course_thumbnail:
+            if playlist_videos:
+                course_thumbnail = playlist_videos[0]['thumbnail']
+        
         course_doc = CourseDB(
             id=playlist_id,
             title=playlist_details['title'],
             description=playlist_details['description'] or f"Course: {playlist_details['title']}",
             difficulty=difficulty,
             topics=course_topics,
-            thumbnail=playlist_details['thumbnail'],
+            thumbnail=course_thumbnail,
             video_count=len(playlist_videos),
             channel=playlist_details['channel_title'],
             imported_at=datetime.now(timezone.utc).isoformat(),
@@ -95,7 +101,7 @@ class PlaylistService:
                 await self.db.videos.insert_many([v.model_dump() for v in video_docs])
             
             # Queue for processing
-            video_ids_to_queue = [v["id"] for v in video_docs]
+            video_ids_to_queue = [v.id for v in video_docs]
             await processing_worker.add_batch_to_queue(video_ids_to_queue, priority=1)
             asyncio.create_task(processing_worker.start_worker())
             

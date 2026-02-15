@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { courseService } from '@/services/courseService';
@@ -209,7 +209,7 @@ const VideoPlayerPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const fetchVideoData = async () => {
+  const fetchVideoData = useCallback(async () => {
     try {
       const [videoData, progressData] = await Promise.all([
         courseService.getVideoById(videoId),
@@ -238,18 +238,18 @@ const VideoPlayerPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [videoId]);
 
-  const fetchNextVideo = async () => {
+  const fetchNextVideo = useCallback(async () => {
     try {
       const response = await analyticsService.getNextRecommendation();
       setNextVideo(response.video);
     } catch (error) {
       console.error('Failed to fetch next video:', error);
     }
-  };
+  }, []);
 
-  const updateProgress = async (percentage) => {
+  const updateProgress = useCallback(async (percentage) => {
     try {
       if (percentage > watchProgress) {
         await courseService.updateVideoProgress(videoId, {
@@ -260,9 +260,9 @@ const VideoPlayerPage = () => {
     } catch (error) {
       console.error('Failed to update progress:', error);
     }
-  };
+  }, [videoId, watchProgress]);
 
-  const handleVideoEnd = async () => {
+  const handleVideoEnd = useCallback(async () => {
     console.log('Video ended, checking quiz...');
     updateProgress(100);
     
@@ -285,9 +285,9 @@ const VideoPlayerPage = () => {
         toast.info('Quiz will be available once the video transcript is processed.');
       }
     }
-  };
+  }, [videoId, quiz, updateProgress]);
 
-  const handleQuizSubmit = async (e) => {
+  const handleQuizSubmit = useCallback(async (e) => {
     e.preventDefault();
     
     if (quizAnswers.includes(-1)) {
@@ -337,9 +337,9 @@ const VideoPlayerPage = () => {
       console.error('Failed to compute/submit quiz:', error);
       toast.error('Failed to submit quiz');
     }
-  };
+  }, [quiz, quizAnswers, fetchNextVideo]);
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = useCallback(async (e) => {
     e.preventDefault();
     if (!inputMessage.trim() || sendingMessage) return;
 
@@ -358,7 +358,7 @@ const VideoPlayerPage = () => {
     } finally {
       setSendingMessage(false);
     }
-  };
+  }, [videoId, inputMessage, sendingMessage]);
 
   if (loading) {
     return (
