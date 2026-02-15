@@ -21,8 +21,6 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown
-    print("Shutting down background worker...")
-    await processing_worker.stop_worker()
     await db_manager.close_db()
 
 app = FastAPI(lifespan=lifespan)

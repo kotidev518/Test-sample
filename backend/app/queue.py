@@ -11,6 +11,14 @@ async def get_redis_pool():
         redis_pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
     return redis_pool
 
+async def enqueue_video_job(video_id: str):
+    """
+    Enqueue a video processing job (transcripts + embeddings) into ARQ.
+    """
+    pool = await get_redis_pool()
+    await pool.enqueue_job('process_video_task', video_id)
+    print(f"📥 Enqueued video processing job: {video_id}")
+
 async def enqueue_quiz_job(video_id: str):
     """
     Enqueue a quiz generation job into ARQ.

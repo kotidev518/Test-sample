@@ -203,15 +203,16 @@ class ProcessingQueueWorker:
                 print(f"  ⚠️ Warning: Video {video_id} not updated")
 
             # Step 5: Mark job as completed
-            await db.processing_queue.update_one(
-                {"_id": job["_id"]},
-                {
-                    "$set": {
-                        "status": "completed",
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    }
-                },
-            )
+            if job.get("_id"):
+                await db.processing_queue.update_one(
+                    {"_id": job["_id"]},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    },
+                )
 
             print(f"  ✅ Video {video_id} processed successfully")
 
@@ -236,17 +237,18 @@ class ProcessingQueueWorker:
 
         if retry_count >= self.max_retries:
             # Mark as permanently failed
-            await db.processing_queue.update_one(
-                {"_id": job["_id"]},
-                {
-                    "$set": {
-                        "status": "failed",
-                        "error_message": error_msg,
-                        "retry_count": retry_count,
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    }
-                },
-            )
+            if job.get("_id"):
+                await db.processing_queue.update_one(
+                    {"_id": job["_id"]},
+                    {
+                        "$set": {
+                            "status": "failed",
+                            "error_message": error_msg,
+                            "retry_count": retry_count,
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    },
+                )
             await db.videos.update_one(
                 {"id": video_id},
                 {"$set": {"processing_status": "failed"}},
@@ -265,17 +267,18 @@ class ProcessingQueueWorker:
             await asyncio.sleep(wait_time)
 
             # Reset to pending for the next batch cycle to pick up
-            await db.processing_queue.update_one(
-                {"_id": job["_id"]},
-                {
-                    "$set": {
-                        "status": "pending",
-                        "error_message": error_msg,
-                        "retry_count": retry_count,
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    }
-                },
-            )
+            if job.get("_id"):
+                await db.processing_queue.update_one(
+                    {"_id": job["_id"]},
+                    {
+                        "$set": {
+                            "status": "pending",
+                            "error_message": error_msg,
+                            "retry_count": retry_count,
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    },
+                )
 
     # ------------------------------------------------------------------ #
     #  Queue management helpers

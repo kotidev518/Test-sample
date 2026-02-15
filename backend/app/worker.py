@@ -1,9 +1,30 @@
 import asyncio
 from arq.connections import RedisSettings
-from .database import db, init_firebase
+from .database import db, init_firebase, ensure_indexes
 from .services.gemini_service import gemini_service
+from .services.processing_queue_service import processing_worker
 from .config import settings
 from datetime import datetime, timezone
+
+async def process_video_task(ctx, video_id: str):
+    """
+    ARQ Background Task to fetch transcript and generate embeddings.
+    Then enqueues the quiz generation task.
+    """
+    print(f"📹 Processing video for embeddings: {video_id}")
+    try:
+        # Check if there is an existing job in processing_queue to keep status in sync
+        job = await db.processing_queue.find_one({"video_id": video_id})
+        if not job:
+            # Create a dummy job dict if not found
+            job = {"video_id": video_id, "_id": None}
+        
+        # Use the existing logic
+        await processing_worker._process_single_job(job)
+        print(f"✅ Video processing (embeddings) finished for {video_id}")
+    except Exception as e:
+        print(f"❌ Error in process_video_task for {video_id}: {e}")
+        raise e
 
 async def generate_quiz_task(ctx, video_id: str):
     """
@@ -54,15 +75,13 @@ async def generate_quiz_task(ctx, video_id: str):
 
     except Exception as e:
         print(f"❌ Error generating quiz for {video_id}: {e}")
-        # arq will automatically retry if we raise an exception 
-        # unless we catch it and don't re-raise.
-        # We want to retry with exponential backoff.
         raise e
 
 async def startup(ctx):
     """Worker startup logic"""
     init_firebase()
-    print("🚀 ARQ Worker started. Ready for jobs.")
+    await ensure_indexes()
+    print("🚀 ARQ Worker started. Ready for jobs (Embeddings + Quizzes).")
 
 async def shutdown(ctx):
     """Worker shutdown logic"""
@@ -70,11 +89,10 @@ async def shutdown(ctx):
 
 class WorkerSettings:
     """ARQ Worker configuration"""
-    functions = [generate_quiz_task]
+    functions = [process_video_task, generate_quiz_task]
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     on_startup = startup
     on_shutdown = shutdown
     concurrency = 3
-    # Exponential backoff: 3 retries, starting at 1s, doubling each time
     max_retries = 3
-    retry_delay_seconds = 1 
+    retry_delay_seconds = 5
