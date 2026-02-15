@@ -103,8 +103,12 @@ const DashboardPage = () => {
               <CardContent className="space-y-4">
                 <div className="aspect-video bg-muted rounded-lg overflow-hidden relative group">
                   <img
-                    src="https://images.unsplash.com/photo-1741699427799-3fbb70fce948?crop=entropy&cs=srgb&fm=jpg&q=85"
+                    src={recommendation?.video?.thumbnail || "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&q=80&w=1000"}
                     alt={recommendation?.video?.title}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&q=80&w=1000';
+                    }}
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
