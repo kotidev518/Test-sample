@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 async def process_video_task(ctx, video_id: str):
     """
     ARQ Background Task to fetch transcript and generate embeddings.
+    Routes through the semaphore on processing_worker so only one
+    transcript is fetched at a time, avoiding YouTube rate-limits.
     Then enqueues the quiz generation task.
     """
     print(f"📹 Processing video for embeddings: {video_id}")
@@ -19,8 +21,8 @@ async def process_video_task(ctx, video_id: str):
             # Create a dummy job dict if not found
             job = {"video_id": video_id, "_id": None}
         
-        # Use the existing logic
-        await processing_worker._process_single_job(job)
+        # Use semaphore-gated method to ensure only 1 transcript is fetched at a time
+        await processing_worker._process_with_semaphore(job)
         print(f"✅ Video processing (embeddings) finished for {video_id}")
     except Exception as e:
         print(f"❌ Error in process_video_task for {video_id}: {e}")
@@ -95,4 +97,4 @@ class WorkerSettings:
     on_shutdown = shutdown
     concurrency = 3
     max_retries = 3
-    retry_delay_seconds = 5
+    retry_delay_seconds = 10

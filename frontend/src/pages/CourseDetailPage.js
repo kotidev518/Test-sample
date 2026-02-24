@@ -168,7 +168,7 @@ const CourseDetailPage = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-sm font-medium text-muted-foreground">
-                            Video {video.order}
+                            Video {video.order + 1}
                           </span>
                           <Badge variant="outline" className="text-xs">
                             {video.difficulty}

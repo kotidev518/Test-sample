@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import axios from 'axios';
+import { analyticsService } from '@/services/analyticsService';
 import { Navbar } from '@/components/Navbar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -24,11 +24,7 @@ import {
   Legend
 } from 'recharts';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
 const AnalyticsPage = () => {
-  const { user, getAxiosConfig } = useAuth();
   const [masteryScores, setMasteryScores] = useState([]);
   const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,12 +35,12 @@ const AnalyticsPage = () => {
 
   const fetchAnalytics = async () => {
     try {
-      const [masteryRes, progressRes] = await Promise.all([
-        axios.get(`${API}/analytics/mastery`, getAxiosConfig()),
-        axios.get(`${API}/analytics/progress`, getAxiosConfig())
+      const [masteryData, progressData] = await Promise.all([
+        analyticsService.getMasteryScores(),
+        analyticsService.getOverallProgress()
       ]);
-      setMasteryScores(masteryRes.data);
-      setProgress(progressRes.data);
+      setMasteryScores(masteryData);
+      setProgress(progressData);
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
       toast.error('Failed to load analytics');
