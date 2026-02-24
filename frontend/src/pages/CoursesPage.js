@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
 import { Navbar } from '@/components/Navbar';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Footer } from '@/components/Footer';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Clock } from 'lucide-react';
+import { PlayCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -37,23 +38,24 @@ const CoursesPage = () => {
 
   const getDifficultyColor = (difficulty) => {
     const colors = {
-      Easy: 'bg-green-500/10 text-green-700 dark:text-green-400',
-      Medium: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
-      Hard: 'bg-red-500/10 text-red-700 dark:text-red-400'
+      Easy: 'bg-[#10b981] text-white',
+      Medium: 'bg-[#f59e0b] text-white',
+      Hard: 'bg-[#ef4444] text-white'
     };
     return colors[difficulty] || colors.Medium;
   };
 
   if (loading) {
     return (
-      <div>
+      <div className="min-h-screen bg-[#f8fafc]">
         <Navbar />
-        <div className="container mx-auto px-4 py-12">
-          <div className="animate-pulse space-y-6">
-            <div className="h-12 bg-muted rounded w-64" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="container mx-auto px-4 py-20 text-center">
+          <div className="animate-pulse space-y-8">
+            <div className="h-4 bg-muted rounded w-32 mx-auto" />
+            <div className="h-12 bg-muted rounded w-96 mx-auto" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-16">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="h-80 bg-muted rounded-lg" />
+                <div key={i} className="h-[450px] bg-muted rounded-3xl" />
               ))}
             </div>
           </div>
@@ -63,26 +65,30 @@ const CoursesPage = () => {
   }
 
   return (
-    <div className="min-h-screen" data-testid="courses-page">
+    <div className="min-h-screen bg-[#f8fafc] pb-20" data-testid="courses-page">
       <Navbar />
-      
-      <div className="container mx-auto px-4 lg:px-8 py-8">
-        {/* Header */}
+
+      <div className="container mx-auto px-4 lg:px-8 py-16">
+        {/* Hero Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="text-center mb-20"
         >
-          <h1 className="text-3xl lg:text-4xl font-heading font-bold tracking-tight-more mb-2">
-            All Courses
+          <span className="text-[10px] font-extrabold tracking-[0.3em] text-[#d946ef] uppercase mb-6 block">
+            Knowledge Catalog
+          </span>
+          <h1 className="text-5xl lg:text-7xl font-heading font-black tracking-tighter mb-6 text-[#1e293b]">
+            The Future of <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a855f7] to-[#6366f1]">Learning</span>
           </h1>
-          <p className="text-muted-foreground">
-            Choose from our curated collection of courses
+          <p className="text-gray-500 max-w-2xl mx-auto text-sm leading-relaxed font-medium">
+            Choose from our curated collection of elite academic paths,<br />
+            designed for precision and deep mastery.
           </p>
         </motion.div>
 
         {/* Courses Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
           {courses.map((course, index) => (
             <motion.div
               key={course.id}
@@ -91,11 +97,12 @@ const CoursesPage = () => {
               transition={{ delay: index * 0.1 }}
             >
               <Card
-                className="h-full hover:-translate-y-1 hover:shadow-lg transition-all cursor-pointer border group"
+                className="group border-0 bg-white rounded-[2rem] overflow-hidden course-card-shadow transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 cursor-pointer flex flex-col h-full"
                 onClick={() => navigate(`/course/${course.id}`)}
                 data-testid={`course-card-${course.id}`}
               >
-                <div className="aspect-video overflow-hidden rounded-t-lg">
+                {/* Image Container */}
+                <div className="relative h-64 overflow-hidden m-4 mb-0 rounded-[1.5rem]">
                   <img
                     src={course.thumbnail}
                     alt={course.title}
@@ -103,42 +110,52 @@ const CoursesPage = () => {
                       e.target.onerror = null;
                       e.target.src = 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&q=80&w=1000';
                     }}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
-                </div>
-                <CardHeader>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge className={getDifficultyColor(course.difficulty)}>
-                      {course.difficulty}
-                    </Badge>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <BookOpen className="h-3 w-3" />
-                      <span>{course.video_count} videos</span>
-                    </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+
+                  {/* Badge */}
+                  <Badge className={`absolute top-4 right-4 px-3 py-1 text-[9px] font-black border-0 rounded-full ${getDifficultyColor(course.difficulty)}`}>
+                    {course.difficulty.toUpperCase()}
+                  </Badge>
+
+                  {/* Video Count Overlay (Optional but nice) */}
+                  <div className="absolute bottom-4 left-4 flex items-center gap-1.5 text-white/90 text-[10px] font-bold">
+                    <PlayCircle className="h-3 w-3" />
+                    <span>{course.video_count} VIDEOS</span>
                   </div>
-                  <CardTitle className="text-xl font-heading line-clamp-2">
+                </div>
+
+                <CardContent className="p-8 pt-6 flex flex-col flex-grow">
+                  <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-blue-400 tracking-wider mb-3">
+                    <PlayCircle className="h-3 w-3" />
+                    <span>{course.video_count} VIDEOS</span>
+                  </div>
+
+                  <h3 className="text-2xl font-bold text-[#1e293b] mb-3 leading-tight group-hover:text-primary transition-colors">
                     {course.title}
-                  </CardTitle>
-                  <CardDescription className="line-clamp-2">
+                  </h3>
+
+                  <p className="text-gray-400 text-[13px] leading-relaxed mb-6 line-clamp-3 font-medium">
                     {course.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {course.topics.slice(0, 3).map((topic, idx) => (
+                  </p>
+
+                  <div className="flex flex-wrap gap-2 mb-8 mt-auto">
+                    {course.topics.slice(0, 2).map((topic, idx) => (
                       <span
                         key={idx}
-                        className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full"
+                        className="text-[9px] font-black tracking-widest text-gray-400 bg-gray-50 border border-gray-100 px-3 py-1 rounded-md uppercase"
                       >
                         {topic}
                       </span>
                     ))}
-                    {course.topics.length > 3 && (
-                      <span className="text-xs text-muted-foreground px-2 py-1">
-                        +{course.topics.length - 3} more
-                      </span>
-                    )}
                   </div>
+
+                  <Button
+                    className="w-full h-12 rounded-2xl bg-gradient-to-r from-[#a855f7] to-[#6366f1] hover:from-[#9333ea] hover:to-[#4f46e5] text-white font-bold text-xs tracking-widest shadow-lg shadow-purple-200 transition-all duration-300"
+                  >
+                    VIEW COURSE
+                  </Button>
                 </CardContent>
               </Card>
             </motion.div>
@@ -146,11 +163,12 @@ const CoursesPage = () => {
         </div>
 
         {courses.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-muted-foreground">No courses available</p>
+          <div className="text-center py-20">
+            <p className="text-gray-400 font-medium">No courses available at the moment.</p>
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 };

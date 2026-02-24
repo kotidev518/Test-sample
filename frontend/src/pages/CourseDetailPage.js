@@ -72,7 +72,7 @@ const CourseDetailPage = () => {
   return (
     <div className="min-h-screen" data-testid="course-detail-page">
       <Navbar />
-      
+
       <div className="container mx-auto px-4 lg:px-8 py-8">
         {/* Back Button */}
         <Button
@@ -107,13 +107,12 @@ const CourseDetailPage = () => {
               <div className="p-6 flex flex-col justify-center">
                 <div className="flex items-center gap-2 mb-4">
                   <Badge
-                    className={`${
-                      course.difficulty === 'Easy'
-                        ? 'bg-green-500/10 text-green-700'
-                        : course.difficulty === 'Medium'
+                    className={`${course.difficulty === 'Easy'
+                      ? 'bg-green-500/10 text-green-700'
+                      : course.difficulty === 'Medium'
                         ? 'bg-yellow-500/10 text-yellow-700'
                         : 'bg-red-500/10 text-red-700'
-                    }`}
+                      }`}
                   >
                     {course.difficulty}
                   </Badge>
@@ -124,7 +123,7 @@ const CourseDetailPage = () => {
                 <h1 className="text-3xl font-heading font-bold tracking-tight-more mb-3">
                   {course.title}
                 </h1>
-               {/* <p className="text-muted-foreground mb-6">{course.description}</p> */}
+                {/* <p className="text-muted-foreground mb-6">{course.description}</p> */}
                 <div className="flex flex-wrap gap-2">
                   {course.topics.map((topic, idx) => (
                     <span
@@ -168,7 +167,7 @@ const CourseDetailPage = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-sm font-medium text-muted-foreground">
-                            Video {video.order}
+                            Video {video.order + 1}
                           </span>
                           <Badge variant="outline" className="text-xs">
                             {video.difficulty}

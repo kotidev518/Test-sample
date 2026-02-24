@@ -58,243 +58,286 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="min-h-screen" data-testid="dashboard-page">
-      <Navbar />
-      
-      <div className="container mx-auto px-4 lg:px-8 py-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl lg:text-4xl font-heading font-bold tracking-tight-more mb-2">
-            Your Learning Dashboard
-          </h1>
-          <p className="text-muted-foreground">
-            Track your progress and continue your learning journey
-          </p>
-        </motion.div>
+    <div className="relative min-h-screen">
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Next Best Video - Featured */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="lg:col-span-2 lg:row-span-2"
-          >
-            <Card className="h-full border-2 border-primary/20 hover:border-primary/40 transition-colors">
-              <CardHeader>
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="h-5 w-5 text-accent" />
-                  <span className="text-sm font-medium text-accent-foreground bg-accent px-2 py-1 rounded-full">
-                    Next Best Video
-                  </span>
-                </div>
-                <CardTitle className="text-2xl font-heading">
-                  {recommendation?.video?.title}
-                </CardTitle>
-                <CardDescription className="text-base">
+      {/* ================= FORCE BACKGROUND ================= */}
+      <div className="fixed inset-0 -z-50">
+
+        {/* Base */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-100 via-white to-pink-100" />
+
+        {/* Orbs */}
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-purple-400/40 rounded-full blur-[180px]" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-pink-400/40 rounded-full blur-[180px]" />
+
+
+
+      </div>
+
+
+      {/* ================= CONTENT ================= */}
+      <div className="relative z-10">
+
+        <Navbar />
+
+
+        <main className="max-w-7xl mx-auto px-6 py-8">
+          {/* ===== DASHBOARD HEADER ===== */}
+          <div className="mb-8">
+
+            <h1 className="text-3xl md:text-4xl font-bold mb-2">
+              Your Learning Dashboard
+            </h1>
+
+            <p className="text-slate-500">
+              Track your progress and continue your learning journey
+            </p>
+
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+
+            {/* LEFT */}
+            <div className="lg:col-span-7">
+
+              <div className="bg-white/80 backdrop-blur-xl border border-white/50 rounded-3xl p-6 shadow-xl flex flex-col">
+
+                {/* Badge */}
+                <span className="inline-block bg-purple-100 text-purple-700 text-xs font-bold px-3 py-1 rounded-full mb-3 w-fit">
+                  ⭐ Next Best Video
+                </span>
+
+                {/* Title */}
+                <h1 className="text-2xl font-bold leading-snug mb-1 line-clamp-2">
+                  {recommendation?.video?.title || "No Recommendation"}
+                </h1>
+
+                {/* Subtitle */}
+                <p className="text-slate-500 text-sm mb-4 line-clamp-1">
                   {recommendation?.reason}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="aspect-video bg-muted rounded-lg overflow-hidden relative group">
+                </p>
+
+
+                {/* Video */}
+                <div className="relative aspect-video max-h-[260px] rounded-2xl overflow-hidden mb-4 shadow-lg">
+
                   <img
-                    src={recommendation?.video?.thumbnail || "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&q=80&w=1000"}
-                    alt={recommendation?.video?.title}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&q=80&w=1000';
-                    }}
+                    src="https://images.unsplash.com/photo-1741699427799-3fbb70fce948"
                     className="w-full h-full object-cover"
+                    alt="video"
                   />
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Play className="h-16 w-16 text-white" />
+
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+
+                    <button
+                      onClick={handleWatchVideo}
+                      className="w-16 h-16 bg-white/30 rounded-full text-white text-2xl backdrop-blur"
+                    >
+                      ▶
+                    </button>
+
                   </div>
+
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Difficulty</span>
-                    <span className="font-medium">{recommendation?.video?.difficulty}</span>
+
+                {/* Info */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+
+                  <div className="p-3 bg-slate-50 rounded-xl border">
+
+                    <p className="text-[11px] text-slate-400 uppercase">Difficulty</p>
+
+                    <p className="font-semibold text-sm">
+                      {recommendation?.video?.difficulty}
+                    </p>
+
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Duration</span>
-                    <span className="font-medium">
+
+
+                  <div className="p-3 bg-slate-50 rounded-xl border">
+
+                    <p className="text-[11px] text-slate-400 uppercase">Duration</p>
+
+                    <p className="font-semibold text-sm">
                       {Math.floor((recommendation?.video?.duration || 0) / 60)} min
-                    </span>
+                    </p>
+
                   </div>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    {recommendation?.video?.topics?.map((topic, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full"
-                      >
-                        {topic}
-                      </span>
-                    ))}
-                  </div>
+
                 </div>
 
+
+                {/* Button */}
                 <Button
                   onClick={handleWatchVideo}
-                  className="w-full gap-2"
-                  size="lg"
-                  data-testid="watch-video-btn"
+                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-violet-500 text-white rounded-xl font-bold text-sm mt-auto"
                 >
-                  <Play className="h-4 w-4" />
-                  Start Learning
+                  ▶ Start Learning
                 </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
 
-          {/* Stats Cards */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="lg:col-span-2"
-          >
-            <div className="grid grid-cols-2 gap-4 h-full">
-              {/* Completed Videos */}
-              <Card data-testid="completed-videos-card">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <BookOpen className="h-5 w-5 text-primary" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-3xl font-heading font-bold">
-                      {progress?.completed_videos || 0}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Videos Completed</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Quiz Score */}
-              <Card data-testid="quiz-score-card">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-accent/50">
-                      <Award className="h-5 w-5 text-accent-foreground" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-3xl font-heading font-bold">
-                      {Math.round(progress?.average_quiz_score || 0)}%
-                    </p>
-                    <p className="text-sm text-muted-foreground">Avg Quiz Score</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Completion Progress */}
-              <Card className="col-span-2" data-testid="completion-progress-card">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-medium">Overall Progress</span>
-                    </div>
-                    <span className="text-2xl font-heading font-bold">
-                      {Math.round(progress?.completion_percentage || 0)}%
-                    </span>
-                  </div>
-                  <Progress value={progress?.completion_percentage || 0} className="h-2" />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {progress?.completed_videos || 0} of {progress?.total_videos || 0} videos
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </motion.div>
-
-          {/* Mastery Scores */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="lg:col-span-2"
-          >
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="text-lg font-heading">Topic Mastery</CardTitle>
-                <CardDescription>Your current mastery levels</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {recommendation?.mastery_scores &&
-                Object.keys(recommendation.mastery_scores).length > 0 ? (
-                  <div className="space-y-4">
-                    {Object.entries(recommendation.mastery_scores)
-                      .slice(0, 4)
-                      .map(([topic, score]) => (
-                        <div key={topic} className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium">{topic}</span>
-                            <span className="text-muted-foreground">
-                              {Math.round(score)}%
-                            </span>
-                          </div>
-                          <Progress value={score} className="h-2" />
-                        </div>
-                      ))}
-                    <Button
-                      variant="outline"
-                      className="w-full mt-4"
-                      onClick={() => navigate('/analytics')}
-                      data-testid="view-analytics-btn"
-                    >
-                      View Detailed Analytics
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>Start learning to build your mastery scores</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
-
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mt-8"
-        >
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-heading font-semibold text-lg mb-1">
-                    Explore More Courses
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Browse our full catalog of courses and videos
-                  </p>
-                </div>
-                <Button
-                  onClick={() => navigate('/courses')}
-                  variant="outline"
-                  data-testid="browse-courses-btn"
-                >
-                  Browse Courses
-                </Button>
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+
+            </div>
+
+
+
+            {/* RIGHT */}
+            <div className="lg:col-span-5 space-y-8">
+
+
+              <div className="grid grid-cols-2 gap-4">
+
+                <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border shadow">
+
+                  <p className="text-4xl font-black">
+
+                    {progress?.completed_videos || 0}
+
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+
+                    Videos Completed
+
+                  </p>
+
+                </div>
+
+
+                <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border shadow">
+
+                  <p className="text-4xl font-black">
+
+                    {Math.round(progress?.average_quiz_score || 0)}%
+
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+
+                    Avg Quiz Score
+
+                  </p>
+
+                </div>
+
+              </div>
+
+
+
+              <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border shadow">
+
+                <div className="flex justify-between mb-3">
+
+                  <p className="font-bold">Overall Progress</p>
+
+                  <p className="text-purple-600 font-bold">
+
+                    {Math.round(progress?.completion_percentage || 0)}%
+
+                  </p>
+
+                </div>
+
+
+                <div className="h-3 bg-slate-100 rounded-full overflow-hidden mb-2">
+
+                  <div
+                    className="h-full bg-purple-600"
+                    style={{
+                      width: `${progress?.completion_percentage || 0}%`,
+                    }}
+                  />
+
+                </div>
+
+              </div>
+
+
+
+              <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl border shadow">
+
+                <h3 className="text-xl font-bold mb-4">
+
+                  Topic Mastery
+
+                </h3>
+
+
+                {recommendation?.mastery_scores ? (
+
+                  Object.entries(recommendation.mastery_scores)
+                    .slice(0, 3)
+                    .map(([topic, score]) => (
+
+                      <div key={topic} className="mb-4">
+
+                        <div className="flex justify-between mb-1 text-sm font-semibold">
+
+                          <span>{topic}</span>
+
+                          <span>{Math.round(score)}%</span>
+
+                        </div>
+
+                        <Progress value={score} className="h-2" />
+
+                      </div>
+
+                    ))
+
+                ) : (
+
+                  <p className="text-center text-slate-500">
+
+                    No Data Available
+
+                  </p>
+
+                )}
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+
+          {/* FOOTER */}
+
+          <div className="mt-10 bg-white/80 backdrop-blur-xl p-8 rounded-3xl border shadow flex justify-between items-center">
+
+            <div>
+
+              <h2 className="text-2xl font-bold">
+                Explore More Courses
+              </h2>
+
+              <p className="text-slate-500">
+                Browse our full curriculum
+              </p>
+
+            </div>
+
+
+            <Button
+              onClick={() => navigate("/courses")}
+              className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold"
+            >
+              Browse Full Catalog
+            </Button>
+
+          </div>
+
+        </main>
+
       </div>
+
     </div>
   );
-};
 
+
+}
 export default DashboardPage;

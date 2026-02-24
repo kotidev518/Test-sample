@@ -47,7 +47,6 @@ async def check_missing_quizzes():
             
             # Upsert into processing queue
             ops = []
-            from pymongo import UpdateOne
             for vid in ids_to_requeue:
                 ops.append(UpdateOne(
                     {"video_id": vid},
@@ -66,11 +65,6 @@ async def check_missing_quizzes():
                 ))
             
             if ops:
-                from datetime import datetime
-                # Need to import datetime/timezone
-                # Or just rely on what's available
-                # Let's fix imports
-                pass 
                 await db.processing_queue.bulk_write(ops)
 
             print(f"✅ Requeued {len(ids_to_requeue)} videos. The background worker will generate quizzes for them.")
