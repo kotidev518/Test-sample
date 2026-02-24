@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime, timezone
 from pymongo import UpdateOne
 from app.database import db
+from app.queue import enqueue_quiz_job, close_redis_pool
 
 async def check_missing_quizzes():
     print("🔍 Checking for videos with transcripts but MISSING quizzes...")
@@ -19,40 +20,38 @@ async def check_missing_quizzes():
     missing_count = 0
     ids_to_requeue = []
     
-    print(f"found {len(videos)} videos with transcripts.")
+    print(f"Found {len(videos)} videos with transcripts.")
     
     for v in videos:
         # Check if quiz exists
         quiz = await db.quizzes.find_one({"video_id": v["id"]})
         
+        # If no quiz, or questions list is empty/small, it needs generation
         if not quiz or not quiz.get("questions") or len(quiz["questions"]) < 4:
             print(f"❌ Missing quiz: {v['id']} - {v['title']}")
             missing_count += 1
             ids_to_requeue.append(v["id"])
-        else:
-            # print(f"✅ Has quiz: {v['id']}")
-            pass
             
     print(f"\nSummary: {missing_count} videos are missing quizzes.")
     
     if missing_count > 0:
-        print(f"\n⚡ Auto-requeuing {missing_count} videos for processing...")
+        print(f"\n⚡ Re-queuing {missing_count} videos for ARQ processing...")
         
-        # Reset video status
+        # 1. Update video status in MongoDB
         if ids_to_requeue:
             await db.videos.update_many(
                 {"id": {"$in": ids_to_requeue}},
-                {"$set": {"processing_status": "pending"}}
+                {"$set": {"processing_status": "processing"}} # Set to processing so UI knows it's happening
             )
             
-            # Upsert into processing queue
+            # 2. Update/Sync processing_queue logic (optional but good for consistency)
             ops = []
             for vid in ids_to_requeue:
                 ops.append(UpdateOne(
                     {"video_id": vid},
                     {
                         "$set": {
-                            "status": "pending",
+                            "status": "processing",
                             "attempts": 0,
                             "priority": 1,
                             "updated_at": datetime.now(timezone.utc)
@@ -67,9 +66,20 @@ async def check_missing_quizzes():
             if ops:
                 await db.processing_queue.bulk_write(ops)
 
-            print(f"✅ Requeued {len(ids_to_requeue)} videos. The background worker will generate quizzes for them.")
+            # 3. CRITICAL: Enqueue in ARQ (Redis) so the worker actually starts working
+            for vid in ids_to_requeue:
+                await enqueue_quiz_job(vid)
+
+            print(f"\n✅ Successfully enqueued {len(ids_to_requeue)} videos. The ARQ worker will process them shortly.")
     else:
         print("✅ All videos already have quizzes!")
 
+async def main():
+    try:
+        await check_missing_quizzes()
+    finally:
+        # Gracefully close Redis connection pool
+        await close_redis_pool()
+
 if __name__ == "__main__":
-    asyncio.run(check_missing_quizzes())
+    asyncio.run(main())

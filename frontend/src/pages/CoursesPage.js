@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import axios from 'axios';
+import { courseService } from '@/services/courseService';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,11 +10,7 @@ import { PlayCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
 const CoursesPage = () => {
-  const { getAxiosConfig } = useAuth();
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,8 +21,8 @@ const CoursesPage = () => {
 
   const fetchCourses = async () => {
     try {
-      const response = await axios.get(`${API}/courses`, getAxiosConfig());
-      setCourses(response.data);
+      const data = await courseService.getAllCourses();
+      setCourses(data);
     } catch (error) {
       console.error('Failed to fetch courses:', error);
       toast.error('Failed to load courses');
