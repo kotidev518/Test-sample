@@ -1,8 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
-import axios from 'axios';
 import '@/App.css';
 
 // Pages
@@ -16,8 +15,6 @@ import AnalyticsPage from '@/pages/AnalyticsPage';
 import AdminDashboardPage from '@/pages/AdminDashboardPage';
 import AdminLoginPage from '@/pages/AdminLoginPage';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
 
 // Protected Route Component (for students)
 const ProtectedRoute = ({ children }) => {
@@ -87,28 +84,10 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
-// Initialize Data Component
-const InitializeData = () => {
-  useEffect(() => {
-    const initData = async () => {
-      try {
-        // Check if data needs to be initialized
-        const response = await axios.post(`${API}/init-data`);
-        console.log('Data initialization:', response.data);
-      } catch (error) {
-        console.error('Failed to initialize data:', error);
-      }
-    };
-    initData();
-  }, []);
-
-  return null;
-};
 
 function AppContent() {
   return (
     <div className="App">
-      <InitializeData />
       <Routes>
         {/* Public Routes */}
         <Route
