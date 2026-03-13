@@ -4,6 +4,9 @@ import jwt
 import bcrypt
 from firebase_admin import storage
 from ..config import settings
+from ..core.logger import get_logger
+
+logger = get_logger(__name__)
 
 def get_video_url(url_or_path: str) -> str:
     """
@@ -38,7 +41,7 @@ def get_video_url(url_or_path: str) -> str:
         blob = bucket.blob(blob_path)
         return blob.generate_signed_url(expiration=timedelta(hours=1))
     except Exception as e:
-        print(f"Error generating signed URL for {url_or_path}: {e}")
+        logger.error("Error generating signed URL for %s: %s", url_or_path, e)
         return url_or_path
 
 def hash_password(password: str) -> str:

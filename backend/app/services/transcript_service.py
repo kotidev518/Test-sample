@@ -12,6 +12,9 @@ from youtube_transcript_api._errors import (
     NoTranscriptFound,
     VideoUnavailable,
 )
+from app.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class TranscriptService:
@@ -33,10 +36,10 @@ class TranscriptService:
         except NoTranscriptFound:
             pass
         except (TranscriptsDisabled, VideoUnavailable) as e:
-            print(f"Transcript unavailable for {video_id}: {e}")
+            logger.warning("Transcript unavailable for %s: %s", video_id, e)
             return None
         except Exception as e:
-            print(f"Transcript error (en) for {video_id}: {e}")
+            logger.error("Transcript error (en) for %s: %s", video_id, e)
 
         # Fallback: try listing all available transcripts and pick the first one
         try:
@@ -55,9 +58,9 @@ class TranscriptService:
                     except Exception:
                         continue
         except (TranscriptsDisabled, VideoUnavailable) as e:
-            print(f"Transcript unavailable for {video_id}: {e}")
+            logger.warning("Transcript unavailable for %s: %s", video_id, e)
         except Exception as e:
-            print(f"Unexpected transcript error for {video_id}: {e}")
+            logger.error("Unexpected transcript error for %s: %s", video_id, e)
 
         return None
 
@@ -127,7 +130,7 @@ class TranscriptService:
                 
                 if result:
                     if attempt > 0:
-                        print(f"✓ Transcript fetched for {video_id} on retry {attempt}")
+                        logger.info("Transcript fetched for %s on retry %d", video_id, attempt)
                     return result
                 
                 # No transcript available (not an error, just unavailable)
@@ -140,12 +143,12 @@ class TranscriptService:
                     jitter = backoff * random.uniform(-0.2, 0.2)  # ±20% jitter
                     wait_time = backoff + jitter
                     
-                    print(f"⚠️ Transcript fetch failed for {video_id} (attempt {attempt + 1}/{max_retries}): {e}")
-                    print(f"   Retrying in {wait_time:.1f}s...")
+                    logger.warning("Transcript fetch failed for %s (attempt %d/%d): %s", video_id, attempt + 1, max_retries, e)
+                    logger.info("   Retrying in %.1fs...", wait_time)
                     
                     await asyncio.sleep(wait_time)
                 else:
-                    print(f"❌ Transcript fetch failed for {video_id} after {max_retries} attempts: {e}")
+                    logger.error("Transcript fetch failed for %s after %d attempts: %s", video_id, max_retries, e)
                     return None
         
         return None

@@ -1,0 +1,44 @@
+name: Deploy Backend to Hugging Face Spaces
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'  # Only trigger when backend files change
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push backend to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Configure git identity
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          # Clone the Hugging Face Space repo
+          # ⚠️ REPLACE balu-19 and Smart-Learn below!
+          git clone https://user:${HF_TOKEN}@huggingface.co/spaces/balu-19/Smart-Learn hf_space
+
+          # Sync backend/ contents into the HF Space root
+          # Remove old files first (except .git) to handle deletions
+          cd hf_space
+          find . -maxdepth 1 ! -name '.git' ! -name '.' -exec rm -rf {} +
+          cd ..
+
+          cp -r backend/* hf_space/
+
+          # Commit and push
+          cd hf_space
+          git add .
+          git commit -m "Auto-deploy from GitHub commit ${{ github.sha }}" || echo "No changes to commit"
+          git push

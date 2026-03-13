@@ -17,6 +17,9 @@ from app.services.transcript_service import transcript_service
 from app.services import embedding_service as embedding_module
 from app.queue import enqueue_quiz_job
 from app.schemas import ProcessingJobDB
+from app.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ProcessingQueueWorker:
@@ -36,29 +39,29 @@ class ProcessingQueueWorker:
         Processes up to max_concurrent jobs in parallel every poll_interval seconds.
         """
         if self.is_running:
-            print("Processing queue worker already running")
+            logger.info("Processing queue worker already running")
             return
 
         self.is_running = True
-        print(f" Processing queue worker started (max_concurrent={self.max_concurrent})")
+        logger.info("Processing queue worker started (max_concurrent=%d)", self.max_concurrent)
 
         try:
             while self.is_running:
                 try:
                     await self._process_batch()
                 except Exception as e:
-                    print(f"Worker batch error: {e}")
+                    logger.error("Worker batch error: %s", e)
 
                 await asyncio.sleep(self.poll_interval)
         except asyncio.CancelledError:
-            print("⏹️  Processing queue worker stopped")
+            logger.info("Processing queue worker stopped")
             self.is_running = False
             raise
 
     async def stop_worker(self):
         """Stop the background worker"""
         self.is_running = False
-        print("Stopping processing queue worker...")
+        logger.info("Stopping processing queue worker...")
 
     # ------------------------------------------------------------------ #
     #  Core concurrent processing
@@ -73,7 +76,7 @@ class ProcessingQueueWorker:
         if not jobs:
             return
 
-        print(f"📦 Processing batch of {len(jobs)} jobs concurrently")
+        logger.info("Processing batch of %d jobs concurrently", len(jobs))
         tasks = [
             asyncio.create_task(self._process_with_semaphore(job))
             for job in jobs
@@ -118,7 +121,7 @@ class ProcessingQueueWorker:
           4. Update queue job status
         """
         video_id = job["video_id"]
-        print(f"📹 Processing video: {video_id}")
+        logger.info("Processing video: %s", video_id)
 
         try:
             # Step 1: Fetch video from database
@@ -127,7 +130,7 @@ class ProcessingQueueWorker:
                 raise Exception(f"Video {video_id} not found in database")
 
             # Step 2: Fetch transcript with rate limiting (2-5s random delay)
-            print(f"  📝 Fetching transcript for {video_id}...")
+            logger.info("  Fetching transcript for %s...", video_id)
             youtube_video_id = video.get("id", video_id)
 
             transcript = await transcript_service.get_transcript_with_rate_limit(
@@ -138,14 +141,14 @@ class ProcessingQueueWorker:
             if not transcript:
                 raise Exception(f"Failed to fetch transcript for {youtube_video_id}")
 
-            print(f"  ✓ Transcript fetched ({len(transcript)} chars)")
+            logger.info("  Transcript fetched (%d chars)", len(transcript))
 
             # Step 3: Generate and Store Embeddings (Full & Chunked)
-            print(f"  🧠 Generating embeddings for {video_id}...")
+            logger.info("  Generating embeddings for %s...", video_id)
             
             # Sub-step 3a: Create chunks for long-form search
             chunks = embedding_module.embedding_service.chunk_text(transcript)
-            print(f"  📦 Created {len(chunks)} chunks for semantic search")
+            logger.info("  Created %d chunks for semantic search", len(chunks))
             
             # Sub-step 3b: Batch generate all embeddings (1 for full transcript + 1 per chunk)
             all_texts_to_embed = [transcript] + chunks
@@ -174,9 +177,9 @@ class ProcessingQueueWorker:
                     # Clear old chunks if any and insert new ones
                     await db.video_chunks.delete_many({"video_id": video_id})
                     await db.video_chunks.insert_many(chunk_docs)
-                    print(f"  ✓ Stored {len(chunk_docs)} chunks in video_chunks collection")
+                    logger.info("  Stored %d chunks in video_chunks collection", len(chunk_docs))
 
-            print(f"  ✓ Embeddings generated")
+            logger.info("  Embeddings generated")
 
             # Step 4: Enqueue Quiz Generation to ARQ
             await enqueue_quiz_job(video_id)
@@ -200,7 +203,7 @@ class ProcessingQueueWorker:
             )
 
             if update_result.modified_count == 0:
-                print(f"  ⚠️ Warning: Video {video_id} not updated")
+                logger.warning("  Video %s not updated", video_id)
 
             # Step 5: Mark job as completed
             if job.get("_id"):
@@ -214,11 +217,11 @@ class ProcessingQueueWorker:
                     },
                 )
 
-            print(f"  ✅ Video {video_id} processed successfully")
+            logger.info("  Video %s processed successfully", video_id)
 
         except Exception as e:
             error_msg = str(e)
-            print(f"  ❌ Error processing {video_id}: {error_msg}")
+            logger.error("  Error processing %s: %s", video_id, error_msg)
             await self._handle_job_failure(job, error_msg)
 
     # ------------------------------------------------------------------ #
@@ -253,16 +256,16 @@ class ProcessingQueueWorker:
                 {"id": video_id},
                 {"$set": {"processing_status": "failed"}},
             )
-            print(f"  ⛔ Video {video_id} failed after {retry_count} retries")
+            logger.error("  Video %s failed after %d retries", video_id, retry_count)
         else:
             # Exponential backoff: 2^retry seconds with ±20% jitter
             backoff = (2 ** retry_count)
             jitter = backoff * random.uniform(-0.2, 0.2)
             wait_time = backoff + jitter
 
-            print(
-                f"  🔄 Retry {retry_count}/{self.max_retries} for {video_id} "
-                f"(backoff {wait_time:.1f}s)"
+            logger.info(
+                "  Retry %d/%d for %s (backoff %.1fs)",
+                retry_count, self.max_retries, video_id, wait_time
             )
             await asyncio.sleep(wait_time)
 
@@ -298,7 +301,7 @@ class ProcessingQueueWorker:
         try:
             existing = await db.processing_queue.find_one({"video_id": video_id})
             if existing:
-                print(f"Video {video_id} already in queue (status: {existing.get('status')})")
+                logger.info("Video %s already in queue (status: %s)", video_id, existing.get('status'))
                 return False
 
             job = ProcessingJobDB(
@@ -312,11 +315,11 @@ class ProcessingQueueWorker:
             )
 
             await db.processing_queue.insert_one(job.model_dump())
-            print(f"✓ Added {video_id} to processing queue (priority: {priority})")
+            logger.info("Added %s to processing queue (priority: %d)", video_id, priority)
             return True
 
         except Exception as e:
-            print(f"Error adding {video_id} to queue: {e}")
+            logger.error("Error adding %s to queue: %s", video_id, e)
             return False
 
     async def add_batch_to_queue(
@@ -440,7 +443,7 @@ class ProcessingQueueWorker:
         )
 
         count = result.modified_count
-        print(f"Reset {count} failed jobs to pending")
+        logger.info("Reset %d failed jobs to pending", count)
         return count
 
     async def clear_completed_jobs(self, older_than_days: int = 7) -> int:
@@ -462,7 +465,7 @@ class ProcessingQueueWorker:
         )
 
         count = result.deleted_count
-        print(f"🗑️  Removed {count} completed jobs older than {older_than_days} days")
+        logger.info("Removed %d completed jobs older than %d days", count, older_than_days)
         return count
 
 

@@ -4,6 +4,9 @@ from fastapi.security import HTTPAuthorizationCredentials
 from ..dependencies import get_current_user, security, get_auth_service
 from ..schemas import UserProfile, UserProfileCreate
 from ..services.auth_service import AuthService
+from ..core.logger import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -13,13 +16,13 @@ async def validate_email(email: str):
     Pre-flight check for email domain legitimacy.
     """
     from ..utils.email_validator import validate_email_domain
-    print(f"🔍 Validating email domain: {email}")
+    logger.info("Validating email domain: %s", email)
     try:
         validate_email_domain(email)
-        print(f"✅ Domain valid: {email}")
+        logger.info("Domain valid: %s", email)
         return {"status": "valid"}
     except Exception as e:
-        print(f"❌ Domain validation failed: {str(e)}")
+        logger.warning("Domain validation failed: %s", e)
         raise
 
 @router.post("/register", response_model=UserProfile)

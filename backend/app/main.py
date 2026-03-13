@@ -8,11 +8,13 @@ from .services.embedding_service import init_embedding_service
 from .routers import auth, courses, analytics, recommendations, admin, vectors
 from .services.processing_queue_service import processing_worker
 from .core.config import settings
+from .core.logger import setup_logging
 from .db.session import db_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    setup_logging()
     db_manager.init_db()
     init_firebase()
     init_embedding_service()  # Now initializes for lazy loading

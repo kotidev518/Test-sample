@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from firebase_admin import auth as firebase_auth
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from .core.logger import get_logger
 from .db.session import get_db
 from .services.course_service import CourseService
 from .services.playlist_service import PlaylistService
@@ -13,6 +14,8 @@ from .services.analytics_service import AnalyticsService
 from .services.recommendation_service import RecommendationService
 from .services.auth_service import AuthService
 from .services.vector_service import VectorService
+
+logger = get_logger(__name__)
 
 security = HTTPBearer()
 
@@ -44,7 +47,7 @@ async def get_current_user(
         
         return user
     except Exception as e:
-        print(f"Auth error: {e}")
+        logger.error("Auth error: %s", e)
         raise HTTPException(status_code=401, detail="Authentication failed")
 
 async def get_admin_user(user = Depends(get_current_user)):
