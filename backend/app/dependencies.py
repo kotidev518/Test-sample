@@ -46,9 +46,18 @@ async def get_current_user(
             raise HTTPException(status_code=404, detail="User not found. Please register first.")
         
         return user
+    except firebase_auth.ExpiredIdTokenError:
+        logger.warning("Auth error: Token has expired")
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except firebase_auth.InvalidIdTokenError:
+        logger.warning("Auth error: Invalid token")
+        raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        logger.error("Auth error: %s", e)
-        raise HTTPException(status_code=401, detail="Authentication failed")
+        logger.error("Auth error: %s", str(e), exc_info=True)
+        # If it's a 404 from before, re-raise it
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
 
 async def get_admin_user(user = Depends(get_current_user)):
     """Verify that the current user is an admin"""

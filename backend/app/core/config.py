@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,6 +31,19 @@ class Settings(BaseSettings):
     # CORS
     # Can be a JSON list or a comma-separated string
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    import json
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    # Fallback to stripping brackets and splitting
+                    v = v[1:-1]
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return v
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().parent.parent.parent / ".env"),

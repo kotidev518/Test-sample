@@ -46,3 +46,11 @@ app.include_router(vectors.router, prefix="/api")  # Vector search endpoints
 @app.get("/")
 async def root():
     return {"message": "Welcome to the Course Platform API"}
+
+@app.get("/api/debug-config")
+async def debug_config():
+    return {
+        "cors_origins": settings.CORS_ORIGINS,
+        "database_name": settings.DB_NAME,
+        "firebase_project": settings.FIREBASE_CREDENTIALS
+    }
